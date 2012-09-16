@@ -1,11 +1,14 @@
 """
+This file is supposed to be a django view, and is
+stripped down to show how the backend should look like
+The code is NOT intended to be working out of the box.
 """
 
 from django.http import HttpResponse
 from django.core.cache import cache
 from django.conf import settings
 
-from etc.common.utils import HttpResponseJson
+from utils import HttpResponseJson
 from hashlib import sha1
 
 import hmac
