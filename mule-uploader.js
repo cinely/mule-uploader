@@ -7,30 +7,35 @@
  */
 
 function mule_upload(input, settings) {
-    console = console || function() {};
+
+    // in order to disable debugging statements, replace this with
+    // console = function() {};
+    var console = console || function() {};
+
     var KB = 1024;
     var MB = 1024 * KB;
     var GB = 1024 * MB;
 
-    // for new webkit browsers, the .slice() method is named .webkitSlice()
+    // for some webkit/mozilla browsers, the .slice() method is named .webkitSlice()
     File.prototype.slice = File.prototype.slice || File.prototype.webkitSlice || File.prototype.mozSlice;
 
+    // if the browser doesn't support the new File API, abort
     if(!(window.File && window.FileList && window.Blob)) {
         return -1;
     }
 
-    // for safari <6, we don't use this uploader
+    // for safari <6, the uploader doesn't work (no slice method, or no Blob at all)
     if((navigator.userAgent.indexOf("Safari") !== -1 && navigator.userAgent.indexOf("Chrom") === -1)
             && navigator.userAgent.indexOf("Version/6") === -1) {
         return -1;
     }
 
-    // no support for IE
+    // IE sucks
     if(navigator.userAgent.indexOf("MSIE") !== -1) {
         return -1;
     }
-    console.log("OK")
 
+    // constructor
     function Uploader(input, settings) {
         var u = this;
 
@@ -38,19 +43,22 @@ function mule_upload(input, settings) {
 
         // NOTE: For Amazon S3, the minimum chunk size is 5MB
         settings.chunk_size = settings.chunk_size || (6 * MB); // default 6MB
-        settings.key = settings.key || "x-unconverted/default_key";
-        settings.bucket = settings.bucket || "akiai-raw";
+        settings.key = settings.key || "default_key"; // sensible defaults (helps with debugging)
+        settings.bucket = settings.bucket || "your_bucket";
         settings.host = settings.host || "http://" + settings.bucket + ".s3.amazonaws.com";
-        settings.access_key = settings.access_key || "AKIAI5ZJJJBHYIH5YUQQ";
-        settings.content_type = settings.content_type || "application/octet-stream";
+        settings.access_key = settings.access_key || "AWSACCESSKEY";
+        settings.content_type = settings.content_type || "the_mime_type"; // must match the backend
+        settings.ajax_base = settings.ajax_base || "/ajax/upload"; // e.g. the get_init_signature url is
+                                                                   // /ajax/upload/get_init_signature/
+        settings.max_size = settings.max_size || 5 * (1 << 30); // 5GB
+
+        // callbacks
         settings.on_progress = settings.on_progress || function() {};
         settings.on_select = settings.on_select || function() {};
         settings.on_error = settings.on_error || function() {};
         settings.on_complete = settings.on_complete || function() {};
         settings.on_init = settings.on_init || function() {};
         settings.on_start = settings.on_start || function() {};
-        settings.ajax_base = settings.ajax_base || "/ajax/upload";
-        settings.max_size = settings.max_size || 5 * (1 << 30); // 5GB
         u.settings = settings;
 
         u.input = input;
@@ -58,19 +66,23 @@ function mule_upload(input, settings) {
 
         u.input.onchange = function(e, force) {
             if(u.get_state() != "waiting") {
+                // make sure the event is only fired once
                 return false;
             }
 
             var file = e.target.files[0];
             u.file = file;
+
+            // some browsers don't support lastModifiedDate
             u.file.lastModifiedDate = u.file.lastModifiedDate || new Date(0);
 
             if(file.size > u.settings.max_size) {
+                // TODO: make sure the alert reflects the max_size setting
                 alert("The maximum allowed file size is 5GB. Please select another file.");
                 return;
             }
 
-            // initialize file upload
+            // initialize the file upload
             u.get_init_signature(function(signature, date) {
                 if(!u.upload_id) {
                     var path = "/" + settings.key + "?uploads";
@@ -80,6 +92,7 @@ function mule_upload(input, settings) {
                     var xhr = new XMLHttpRequest();
                     var handler = function(e) {
                         u.settings.on_select.call(u, file);
+
                         // hackish, should be changed
                         u.upload_id = e.target.responseText.match(/<UploadId>([^<]+)/)[1];
                         u.get_all_signatures(function() {
@@ -100,7 +113,6 @@ function mule_upload(input, settings) {
                         u.list_parts(function() {
                             // success means succeed
                             u.get_all_signatures(function() {
-                                console.log("1");
                                 u.load_file(file);
                             });
                         }, function() {
@@ -131,7 +143,6 @@ function mule_upload(input, settings) {
         }
         if(!u._start_fired) {
             u.settings.on_start.call(u, u.file);
-            console.log("here?")
             u.settings.on_progress(u, 0, u.file.size);
             u._start_fired = true;
         }
@@ -327,8 +338,6 @@ function mule_upload(input, settings) {
                         $(this).find("ETag").text()
                     ]);
                 });
-                console.log(">>>")
-                console.debug(e);
                 callback(parts);
             }
             xhr.addEventListener("load", handler, true);
@@ -412,7 +421,6 @@ function mule_upload(input, settings) {
         var u = this;
         var xhr = new XMLHttpRequest();
         var handler = function(e) {
-            console.debug(e);
             var response = JSON.parse(e.target.responseText);
 
             // the server may also respond with chunks already loaded
@@ -420,14 +428,13 @@ function mule_upload(input, settings) {
                 console.log("Resume upload...")
                 var chunks = response.chunks;
                 u._progress = u._progress || [];
-                console.debug(response);
                 for(var i=0; i<chunks.length; i++) {
                     console.log("Chunk already loaded >>>" + (chunks[i] - 1))
                     u._progress[chunks[i]] = u.settings.chunk_size;
                     u.add_loaded_chunk(chunks[i] - 1);
                     u.set_chunk_finished(chunks[i] - 1);
                 }
-                console.log("__" + u.get_total_progress());
+                console.log("Bytes loaded: " + u.get_total_progress());
                 u.upload_id = response.upload_id;
                 u.settings.key = response.key;
             }
