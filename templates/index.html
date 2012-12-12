@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mule Uploader</title>
+        <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+        <script src="bootstrap/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="mule-uploader.js"></script>
+        <script type="text/javascript">
+            $(function() {
+                var file = document.getElementById("file")
+                var settings = {
+                    access_key: "{{ aws_access_key }}",
+                    content_type: "{{ content_type }}",
+                    max_size: 5 * (1 << 30), // 5gb
+                    on_error: function() {
+                        $('#log').prepend("Error occurred! You can help me fix this by filing a bug report here: https://github.com/cinely/mule-uploader/issues\n");
+                    },
+                    on_select: function(fileObj) {
+                        $('#log').prepend("File selected\n");
+                    },
+                    on_start: function(fileObj) {
+                        $('#explanation').animate({'opacity': 0}, 'slow', function() {
+                            $(this).text("Now, let the file upload for a bit, then refresh the page and select the file again. It will blow your mind :) ");
+                            $(this).animate({'opacity': 1}, 'slow');
+                        });
+                        $('#log').prepend("Upload started\n");
+                    },
+                    on_progress: function(bytesUploaded, bytesTotal) {
+                        var percent = bytesUploaded / bytesTotal * 100;
+                        $('.progress .bar').width(percent / 100 * $('.progress').width());
+                        $('#log').prepend("Upload progress: " + bytesUploaded + " / " 
+                            + bytesTotal + " (" + parseInt(percent) + "." + parseInt(percent * 10) % 10
+                            + "%)\n");
+                    },
+                    on_init: function() {
+                        $('#log').prepend("Uploader initialized\n");
+                    },
+                    on_complete: function() {
+                        $('#log').prepend("Upload complete!\n");
+                    },
+                    on_chunk_uploaded: function() {
+                        $('#log').prepend("Chunk finished uploading\n");
+                    }
+                };
+                upload = mule_upload(file, settings);
+            });
+        </script>
+        <link href='http://fonts.googleapis.com/css?family=Carme' rel='stylesheet' type='text/css'>
+        <style>
+            h1 {
+                font-family: "Carme";
+            }
+            .progress {
+                width: 600px;
+                height: 20px;
+            }
+            #log {
+                width: 586px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="hero-unit">
+                <h1>Mule Uploader</h1>
+                <p>
+                    <em>Mule Uploader</em> gets your file from your computer to <a href="http://aws.amazon.com/s3/">Amazon S3</a>, no matter what.
+                    Wireless just went down? A <a href="http://en.wikipedia.org/wiki/Badger">badger</a> ate the power cord?
+                    You have to go now and need to resume the upload when you get back? <em>Mule Uploader</em> got you covered.
+                </p>
+                <span id="explanation">
+                    Go ahead, select a file. It will start uploading automatically.
+                </span>
+                <br/>
+                <input type="file" id="file" />
+                <div class="progress progress-striped active">
+                    <div class="bar"></div>
+                </div>
+                <div style="clear: both"></div>
+                <textarea id="log" rows="10"></textarea>
+                <p>For more information, visit <a href="https://github.com/cinely/mule-uploader">the GitHub page</a>.</p>
+            </div>
+        </div>
+    </body>
+</html>
