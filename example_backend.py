@@ -6,7 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from werkzeug import SharedDataMiddleware
 from hashlib import sha1
 from settings import DEBUG, AWS_ACCESS_KEY, AWS_SECRET, MIME_TYPE, BUCKET
-from settings import ENGINE
+from settings import ENGINE, PORT
 
 import os
 import hmac
@@ -228,4 +228,4 @@ if app.debug:
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=PORT)
