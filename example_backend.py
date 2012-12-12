@@ -218,7 +218,7 @@ def upload_action(action):
 @app.route("/")
 def index():
     return render_template('index.html', aws_access_key=AWS_ACCESS_KEY,
-                           mime_type=MIME_TYPE)
+                           mime_type=MIME_TYPE, bucket=BUCKET)
 
 
 if app.debug:
