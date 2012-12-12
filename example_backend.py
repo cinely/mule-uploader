@@ -72,8 +72,6 @@ def _http_date():
 
 def _action_init(key, date=None):
     date = date or _http_date()
-    print "POST\n\n\n\nx-amz-acl:public-read\nx-amz-date:{}\n/{}/{}?uploads".format(
-            date, BUCKET, key)
     return _process_string(
         "POST\n\n\n\nx-amz-acl:public-read\nx-amz-date:{}\n/{}/{}?uploads".format(
             date, BUCKET, key)), date

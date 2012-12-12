@@ -7,5 +7,3 @@ AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY', "ThePublicAccessKey")
 DEBUG = bool(int(os.environ.get('DEBUG', 1)))
 ENGINE = os.environ.get('HEROKU_POSTGRESQL_OLIVE_URL', 'sqlite:///database.db')
 PORT = int(os.environ.get('PORT', 5000))
-
-print MIME_TYPE

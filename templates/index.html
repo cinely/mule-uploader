@@ -42,7 +42,9 @@
                         $('#log').prepend("Uploader initialized\n");
                     },
                     on_complete: function() {
+                        var url = "http://{{ bucket }}.s3.amazonaws.com/{{ key }}";
                         $('#log').prepend("Upload complete!\n");
+                        $('#log').prepend("The file url is " + url + ".\n");
                     },
                     on_chunk_uploaded: function() {
                         $('#log').prepend("Chunk finished uploading\n");
@@ -93,7 +95,7 @@
                 <div style="clear: both"></div>
                 <textarea id="log" rows="10"></textarea>
                 <p>
-                    For more information, visit <a href="https://github.com/cinely/mule-uploader">the GitHub page</a>.
+                    For more information, visit <a href="https://github.com/cinely/mule-uploader#mule-upload">the GitHub page</a>.
                     (you can see the source code for this demo there, <em>and</em> you get free cookies!)
                 </p>
                 <p>If have any questions about this, drop me a line at
