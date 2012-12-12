@@ -6,6 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from werkzeug import SharedDataMiddleware
 from hashlib import sha1
 from settings import DEBUG, AWS_ACCESS_KEY, AWS_SECRET, MIME_TYPE, BUCKET
+from settings import ENGINE
 
 import os
 import hmac
@@ -15,7 +16,7 @@ import json
 
 
 ## The Upload DB Model
-engine = create_engine('sqlite:///database.db', convert_unicode=True)
+engine = create_engine(ENGINE, convert_unicode=True)
 db = scoped_session(sessionmaker(
     autocommit=False, autoflush=True, bind=engine))
 

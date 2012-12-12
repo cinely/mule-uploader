@@ -2,5 +2,4 @@ Flask==0.9
 Jinja2==2.6
 SQLAlchemy==0.7.9
 Werkzeug==0.8.3
-pysqlite==2.6.3
 simplejson==2.6.2
