@@ -1,1 +1,1 @@
-web: python example_backend.py
+web: newrelic-admin run-program python example_backend.py
