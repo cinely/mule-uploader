@@ -1,6 +1,8 @@
 Mule-upload
 ===========
 
+[You can test the uploader here!](http://tranquil-spire-1625.herokuapp.com/)
+
 ### Stubborn HTML5 File Uploader for Amazon S3
 
 #### Features:
@@ -31,7 +33,7 @@ In order to use this library, you need the following:
      </CORSRule>
      ```
      
-3. You need a backend to sign your REST requests. Here is an example Python snippet to sign an upload start request:
+3. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). Here is an example Python snippet to sign an upload start request:
 
     ```python
     import time
@@ -48,3 +50,6 @@ In order to use this library, you need the following:
   * `get_end_signature` - returns a signature for ending an upload -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
   * `get_all_signatures` - (optional) based on a file `key` / `upload_id` and file size, it returns the list and end signatures, as well as signatures for all chunk uploads
   * `chunk_loaded` - (optional) notifies the server that a chunk has been uploaded; this is needed for browser-refresh resume (the backend will store the chunks in a database, and give the user the file key + upload id + chunks uploaded for the file to be uploaded)
+
+
+If you'd want example backends in other languages/with other frameworks, let me know. 
