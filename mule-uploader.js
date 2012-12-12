@@ -37,7 +37,7 @@ function mule_upload(input, settings) {
         settings.key = settings.key || "the_key";
         settings.bucket = settings.bucket || "akiai-raw";
         settings.host = settings.host || "http://" + settings.bucket + ".s3.amazonaws.com";
-        settings.access_key = settings.access_key || "YOUR KEY";
+        settings.access_key = settings.access_key || "YOUR AWS ACCESS KEY";
         settings.content_type = settings.content_type || "the_mime_type";
         settings.on_progress = settings.on_progress || function() {};
         settings.on_select = settings.on_select || function() {};

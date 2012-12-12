@@ -13,6 +13,7 @@ import hmac
 import base64
 import time
 import json
+import random
 
 
 ## The Upload DB Model
@@ -218,7 +219,8 @@ def upload_action(action):
 @app.route("/")
 def index():
     return render_template('index.html', aws_access_key=AWS_ACCESS_KEY,
-                           mime_type=MIME_TYPE, bucket=BUCKET)
+                           mime_type=MIME_TYPE, bucket=BUCKET,
+                           key=str(random.randint(1, 1000000)))
 
 
 if app.debug:
