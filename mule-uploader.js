@@ -81,8 +81,8 @@ function mule_upload(input, settings) {
                         u.upload_id = e.target.responseText.match(/<UploadId>([^<]+)/)[1];
                         u.get_all_signatures(function() {
                             u.load_file(file);
-                        })
-                    }
+                        });
+                    };
                     xhr.addEventListener("load", handler, true);
                     xhr.addEventListener("error", handler, true);
 

@@ -6,7 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from werkzeug import SharedDataMiddleware
 from hashlib import sha1
 from settings import DEBUG, AWS_ACCESS_KEY, AWS_SECRET, MIME_TYPE, BUCKET
-from settings import ENGINE, PORT
+from settings import ENGINE, PORT, CHUNK_SIZE
 
 import os
 import hmac
@@ -115,11 +115,11 @@ def upload_action(action):
 
     if action == 'chunk_loaded':
         filename = request.args['filename']
-        filesize = request.args['filesize']
+        filesize = int(request.args['filesize'])
         last_modified = request.args['last_modified']
         chunk = int(request.args['chunk'])
 
-        if filesize > 6 * 1024 * 1024:  # 6MB
+        if filesize > CHUNK_SIZE:
             try:
                 u = db.query(Upload).filter(
                     Upload.filename == filename,
@@ -184,8 +184,6 @@ def upload_action(action):
                 "upload_id": u.upload_id,
                 "chunks": map(int, u.chunks_uploaded.split(','))
             })
-        except AssertionError:
-            pass  # continue normally
         except AssertionError:
             db.query(Upload).filter(
                 Upload.filename == filename,
