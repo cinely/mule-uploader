@@ -103,7 +103,6 @@ function mule_upload(input, settings) {
                             });
                         }, function() {
                             u.upload_id = null;
-                            u.settings.key = u.reset_key();
                             this._loaded_chunks = null;
                             u._progress = null;
                             u._loaded_chunks = null;
@@ -633,7 +632,6 @@ function mule_upload(input, settings) {
         u._loaded_chunks = null;
         u._start_fired = false;
         u.upload_id = null;
-        u.settings.key = u.reset_key();
         u._progress = null;
         u._chunk_signatures = null;
         u._list_signature = null;
@@ -760,12 +758,6 @@ function mule_upload(input, settings) {
     }
     Uploader.prototype.get_upload_id = function() {
         return this.upload_id;
-    }
-    Uploader.prototype.reset_key = function() {
-        return 'x-unconverted/' + 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
-            return v.toString(16);
-        });
     }
     return new Uploader(input, settings);
 };
