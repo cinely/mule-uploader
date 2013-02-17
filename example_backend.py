@@ -115,7 +115,7 @@ def upload_action(action):
 
     if action == 'chunk_loaded':
         filename = request.args['filename']
-        filesize = int(request.args['filesize'])
+        filesize = request.args['filesize']
         last_modified = request.args['last_modified']
         chunk = int(request.args['chunk'])
 
