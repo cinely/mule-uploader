@@ -48,6 +48,7 @@ function mule_upload(input, settings) {
         settings.on_chunk_uploaded = settings.on_chunk_uploaded || function() {};
         settings.ajax_base = settings.ajax_base || "/upload-backend";
         settings.max_size = settings.max_size || 5 * (1 << 30); // 5GB
+        settings.accepted_extensions = settings.accepted_extensions || ""; //extensions comma delimited without period (jpg,jpeg,png,gif)
         u.settings = settings;
 
         u.input = input;
@@ -63,8 +64,25 @@ function mule_upload(input, settings) {
             u.file.lastModifiedDate = u.file.lastModifiedDate || new Date(0);
 
             if(file.size > u.settings.max_size) {
-                alert("The maximum allowed file size is 5GB. Please select another file.");
+                alert("The maximum allowed file size is "+(u.settings.max_size/(1 << 30))+"GB. Please select another file.");
                 return;
+            }
+            
+            if(u.settings.accepted_extensions){
+	            file_accepted=false;
+	            var file_extension = file.name.split('.').pop();
+	            extensions_array = u.settings.accepted_extensions.split(',');
+	            
+	            for(var i=0; i<extensions_array.length; i++){
+		            if(file_extension == extensions_array[i]){
+			            file_accepted=true;
+		            }
+	            }
+	            
+	            if(!file_accpeted){
+		            alert("This file format is not accepted. Please use a file with an extension like '"+u.settings.accepted_extensions);
+		            return;
+	            }
             }
 
             // initialize file upload
@@ -604,11 +622,16 @@ function mule_upload(input, settings) {
             }
         }
         xhr.addEventListener("load", inner_handler, true);
-        xhr.addEventListener("error", function() {
-            setTimeout(function() {
-                return u.check_already_uploaded(callback, error_callback);
-            }, 2500);
-        }, true);
+        
+        if(error_callback && typeof(error_callback) === "function"){
+	        xhr.addEventListener("error", error_callback, true);
+        }else{
+	        xhr.addEventListener("error", function() {
+	            setTimeout(function() {
+	                return u.check_already_uploaded(callback, error_callback);
+	            }, 2500);
+	        }, true);
+	    }
         xhr.open(method, u.settings.host + path)
         xhr.send();
     }
