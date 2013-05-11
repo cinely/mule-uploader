@@ -7,7 +7,17 @@
  */
 
 function mule_upload(input, settings) {
-    console = console || function() {};
+    var log = function() {}
+    var debug = false;
+    if(debug && console && console.log) {
+        log = function() {
+            var args = ["[MuleUploader]"];
+            for(var i=0; i<arguments.length; i++) {
+                args.push(arguments[i]);
+            }
+            return console.log.apply(console, args);
+        }
+    }
     var KB = 1024;
     var MB = 1024 * KB;
     var GB = 1024 * MB;
@@ -25,7 +35,7 @@ function mule_upload(input, settings) {
             return -1;
         }
     }
-    console.log("OK")
+    log("OK")
 
     function Uploader(input, settings) {
         var u = this;
@@ -64,21 +74,22 @@ function mule_upload(input, settings) {
             u.file.lastModifiedDate = u.file.lastModifiedDate || new Date(0);
 
             if(file.size > u.settings.max_size) {
-                alert("The maximum allowed file size is "+(u.settings.max_size/(1 << 30))+"GB. Please select another file.");
+                alert("The maximum allowed file size is " + (u.settings.max_size/(1 << 30))
+                      + "GB. Please select another file.");
                 return;
             }
-            
+
             if(u.settings.accepted_extensions){
 	            file_accepted=false;
 	            var file_extension = file.name.split('.').pop();
 	            extensions_array = u.settings.accepted_extensions.split(',');
-	            
+
 	            for(var i=0; i<extensions_array.length; i++){
 		            if(file_extension == extensions_array[i]){
 			            file_accepted=true;
 		            }
 	            }
-	            
+
 	            if(!file_accpeted){
 		            alert("This file format is not accepted. Please use a file with an extension like '"+u.settings.accepted_extensions);
 		            return;
@@ -114,9 +125,7 @@ function mule_upload(input, settings) {
                 } else {
                     if(!force) {
                         u.list_parts(function() {
-                            // success means succeed
                             u.get_all_signatures(function() {
-                                console.log("1");
                                 u.load_file(file);
                             });
                         }, function() {
@@ -146,7 +155,6 @@ function mule_upload(input, settings) {
         }
         if(!u._start_fired) {
             u.settings.on_start.call(u, u.file);
-            console.log("here?")
             u.settings.on_progress.call(u, 0, u.file.size);
             u._start_fired = true;
         }
@@ -157,23 +165,23 @@ function mule_upload(input, settings) {
         if(next_chunk != -1) {
             u.upload_chunk(next_chunk);
         } else {
-            console.log("All done; finish upload");
+            log("All done; finish upload");
             u.finish_upload();
         }
     }
     Uploader.prototype.upload_chunk = function(chunk) {
         var u = this;
         if(u.get_state() != "processing") {
-            console.log("NOT processing; return");
+            log("NOT processing; return");
             return;
         }
         if(u.get_chunk_uploading(chunk)) {
-            console.log("ALREADY UPLOADING")
+            log("Already Uploading")
             return;
         } else {
             u.set_chunk_uploading(chunk);
         }
-        console.log(">>> UPLOADING CHUNK: " + chunk);
+        log("Uploading Chunk: " + chunk);
         u.get_chunk_signature(chunk, function(signature, date) {
             var length = u.settings.chunk_size;
             var start = chunk * length;
@@ -200,7 +208,7 @@ function mule_upload(input, settings) {
                 if(e.target.status / 100 != 2) {
                     return error_handler();
                 }
-                console.log("CHUNK " + chunk + " UPLOADED");
+                log("Chunk uploaded: " + chunk);
                 u.notify_chunk_uploaded(chunk);
                 u.settings.on_chunk_uploaded.call(u, chunk);
                 xhr.abort();
@@ -211,7 +219,7 @@ function mule_upload(input, settings) {
                 if(next_chunk != -1) {
                     u.upload_chunk(next_chunk);
                 } else {
-                    console.log("Done");
+                    log("Done");
                     u.finish_upload();
                 }
             }
@@ -229,9 +237,8 @@ function mule_upload(input, settings) {
                     u.settings.on_progress.call(u, u.file.size, u.file.size); // it's 100% done
                     u.settings.on_complete.call(u);
                 }, function() {
-                    console.log("-- ERROR ------------");
-                    console.debug(error_arguments);
-                    console.log("-- ERROR ------------");
+                    log("Error: ");
+                    log(error_arguments)
                     // if not already uploaded
                     if(error_handled) {
                         return;
@@ -239,9 +246,9 @@ function mule_upload(input, settings) {
                     error_handled = true;
                     window.debug = u;
 
-                    console.log("ABORT 1!!!!");
+                    log("Abort");
                     xhr.abort();
-                    console.log("RETRY CHUNK >> " + chunk);
+                    log("Retry chunk: " + chunk);
                     clearInterval(u._intervals[chunk]);
                     setTimeout(function() {
                         if(u.get_state() == "processing") {
@@ -288,7 +295,7 @@ function mule_upload(input, settings) {
 
             u._intervals[chunk] = setInterval(function() {
                 if(last_progress_time && (new Date - last_progress_time) > 15000) { // 15s
-                    console.log("CHUNK FAILED; RETRY");
+                    log("Chunk Failed; retry");
                     clearInterval(u._intervals[chunk]);
                     if(u.get_state() == "processing") {
                         xhr.abort();
@@ -313,28 +320,22 @@ function mule_upload(input, settings) {
 
             var xhr = new XMLHttpRequest();
             var handler = function(e, is_head) {
-                console.log("HERE !! 3 -- " + e.target.status + ",  " + is_head);
                 if(e.target.status / 100 == 2) {
-                    console.log("Finished file.");
+                    log("Finished file.");
                     u.set_state("finished");
                     u.settings.on_progress.call(u, u.file.size, u.file.size); // it's 100% done
                     u.settings.on_complete.call(u);
                 } else if(e.target.status == 400 &&
                         e.target.responseText.indexOf("EntityTooSmall") !== -1) {
-                    console.log("HEre << 1");
                     u.list_parts(function(parts) {
-                        console.log("HEre << 2", parts);
                         u.update_chunks(parts);
                         var next_chunk = u.get_next_chunk();
-                        console.log("NEXT CHUNKKK >> ", next_chunk);
                         u.set_state("processing");
                         u.upload_chunk(next_chunk);
                     });
                 } else {
                     if(!is_head) {
-                        console.log("HERE !! 2");
                         u.check_already_uploaded(function() {
-                            console.log("??!?!?")
                             handler({
                                 target: {
                                     status: 200
@@ -369,10 +370,8 @@ function mule_upload(input, settings) {
             u.list_parts(function(parts) {
                 var num_chunks = Math.ceil(u.file.size / u.settings.chunk_size);
                 if(parts.length != num_chunks) {
-                    console.log("Uh Oh");
                     u.update_chunks(parts);
                     var next_chunk = u.get_next_chunk();
-                    console.log(">>>><<<", next_chunk)
                     u.set_state("processing");
                     u.upload_chunk(next_chunk);
                     return;
@@ -426,8 +425,6 @@ function mule_upload(input, settings) {
                         size
                     ]);
                 });
-                console.log(">>>")
-                console.debug(e);
                 callback(parts);
             }
             xhr.addEventListener("load", handler, true);
@@ -511,30 +508,27 @@ function mule_upload(input, settings) {
         var u = this;
         var xhr = new XMLHttpRequest();
         var handler = function(e) {
-            console.debug(e);
             var response = JSON.parse(e.target.responseText);
 
             // the server may also respond with chunks already loaded
             if(response.chunks) {
-                console.log("Resume upload...")
+                log("Resume upload...")
                 var chunks = response.chunks;
                 u._progress = u._progress || [];
-                console.debug(response);
                 for(var i=0; i<chunks.length; i++) {
-                    console.log("Chunk already loaded >>>" + (chunks[i] - 1))
+                    log("Chunk already uploaded: " + (chunks[i] - 1))
                     u._progress[chunks[i]] = u.settings.chunk_size;
                     u.add_loaded_chunk(chunks[i] - 1);
                     u.set_chunk_finished(chunks[i] - 1);
                     u.bytes_started = (u.bytes_started || 0) + u.settings.chunk_size;
                 }
-                console.log("__" + u.get_total_progress());
                 u.upload_id = response.upload_id;
                 u.settings.key = response.key;
             }
             callback(response.signature, response.date);
         }
         var error_handler = function() {
-            console.log("Failed; trying again");
+            log("Failed; trying again");
             setTimeout(function() {
                 u.get_init_signature(callback);
             }, 1000);
@@ -554,7 +548,7 @@ function mule_upload(input, settings) {
             callback(response.signature, response.date)
         }
         var error_handler = function() {
-            console.log("Failed; trying again");
+            log("Failed; trying again");
             setTimeout(function() {
                 u.get_delete_signature(callback);
             }, 1000);
@@ -614,15 +608,15 @@ function mule_upload(input, settings) {
             // if the HEAD returns 404, re-upload,
             // else, it returns 200 and finish the upload
             if(e.target.status / 100 == 2) {
-                console.log("ALREADY UPLOADED");
+                log("Already Uploaded");
                 callback();
             } else {
-                console.log(">><< ERROR");
+                log("Error!");
                 error_callback();
             }
         }
         xhr.addEventListener("load", inner_handler, true);
-        
+
         if(error_callback && typeof(error_callback) === "function"){
 	        xhr.addEventListener("error", error_callback, true);
         }else{
@@ -638,7 +632,7 @@ function mule_upload(input, settings) {
     Uploader.prototype.cancel = function(callback) {
         var u = this;
         for(var i=0; i<u._chunk_xhr.length; i++) {
-            console.log("Abort chunk >> " + u._chunk_xhr[i]);
+            log("Abort chunk: " + u._chunk_xhr[i]);
             u._chunk_xhr[i].abort();
         }
         u._intervals = u._intervals || {};
@@ -679,10 +673,10 @@ function mule_upload(input, settings) {
             u.set_chunk_finished(part_number - 1);
             loaded.push(part_number - 1);
         }
-        console.log(loaded);
+        log(loaded);
         for(var i=0; i<num_chunks; i++) {
             if(loaded.indexOf(i) === -1) {
-                console.log("CHUNK NOT LOADED >>> ", i);
+                log("Chunk not uploaded: ", i);
                 u.set_progress(i, 0);
             }
         }
@@ -697,7 +691,9 @@ function mule_upload(input, settings) {
         return this._state = state;
     }
     Uploader.prototype.set_progress = function(chunk, loaded) {
-        console.log("PROGRESS --> " + chunk + ": " + loaded);
+        var num_chunks = Math.ceil(this.file.size / this.settings.chunk_size);
+        log("Progress: Chunk " + chunk + " / " + num_chunks + ", Bytes " + loaded + " / "
+            + this.settings.chunk_size + " (" + (loaded/this.settings.chunk_size * 100).toFixed(2) + "%)");
         this._progress = this._progress || {};
         this._progress[chunk] = loaded;
     }
