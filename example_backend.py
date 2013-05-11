@@ -190,6 +190,7 @@ def upload_action(action):
                 Upload.filesize == filesize,
                 Upload.last_modified == last_modified
             ).delete()
+            db.commit()
 
         string, date = _action_init(key)
 

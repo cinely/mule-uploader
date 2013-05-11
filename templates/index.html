@@ -55,7 +55,7 @@
                         $('#log').prepend("Uploader initialized\n");
                     },
                     on_complete: function() {
-                        var url = "http://{{ bucket }}.s3.amazonaws.com/{{ key }}";
+                        var url = "http://{{ bucket }}.s3.amazonaws.com/" + this.settings.key;
                         $('#log').prepend("Upload complete!\n");
                         $('#log').prepend("The file url is " + url + ".\n");
                     },

@@ -183,8 +183,8 @@ function mule_upload(input, settings) {
 
                 // and match the extension against the given extension list
                 var file_accepted = false;
-                for(var i=0; i<extensions_array.length; i++){
-                    if(file_extension == extensions_array[i]){
+                for(var i=0; i<extensions_array.length; i++) {
+                    if(file_extension == extensions_array[i]) {
                         file_accepted = true;
                         break;
                     }
@@ -403,6 +403,7 @@ function mule_upload(input, settings) {
             var error_handled = false;
             var error_handler = function() {
                 var error_arguments = arguments;
+                var xhr = this;
                 // the upload may have finished, so check for that
                 u.check_already_uploaded(function() {
                     // if already uploaded
@@ -427,7 +428,8 @@ function mule_upload(input, settings) {
 
                     // abort the chunk upload
                     log("Abort");
-                    this.abort();
+                    log(xhr);
+                    xhr.abort();
 
                     log("Retry chunk: " + chunk);
 
@@ -491,7 +493,7 @@ function mule_upload(input, settings) {
                     clearInterval(u._intervals[chunk]);
                     if(u.get_state() == "processing") {
                         xhr.abort();
-                        error_handler();
+                        error_handler.call(xhr);
                     }
                 }
             }, 4000); // every 4s
@@ -518,7 +520,7 @@ function mule_upload(input, settings) {
             var method = "POST";
             var authorization = "AWS " + u.settings.access_key + ":" + signature;
 
-            var handler = function(e, is_head) {
+            var handler = function(e) {
                 // i.e. if it's a 2XX response
                 if(e.target.status / 100 == 2) {
                     log("Finished file.");
@@ -536,28 +538,26 @@ function mule_upload(input, settings) {
                         u.set_state("processing");
                         u.upload_chunk(next_chunk);
                     });
+                } else if(e.target.status == 404) {
+                    // 404 = NoSuchUpload = check if already finished
+                    // if so, start a new upload
+                    u.cancel(function() {
+                        u.input.onchange(null, true);
+                    });
                 } else {
-                    if(!is_head) {
-                        u.check_already_uploaded(function() {
-                            handler({
-                                target: {
-                                    status: 200
-                                }
-                            }, true);
-                        }, function() {
-                            handler({
-                                target: {
-                                    status: 404
-                                }
-                            }, true);
-                        })
-                        // 404 = NoSuchUpload = check if already finished
-
-                    } else {
-                        u.cancel(function() {
-                            u.input.onchange(null, true);
+                    u.check_already_uploaded(function() {
+                        handler({
+                            target: {
+                                status: 200
+                            }
                         });
-                    }
+                    }, function() {
+                        handler({
+                            target: {
+                                status: 404
+                            }
+                        });
+                    })
                 }
             }
 
@@ -757,11 +757,16 @@ function mule_upload(input, settings) {
     // gets the init signature, needed for starting an upload
     Uploader.prototype.get_init_signature = function(callback, force) {
         var u = this;
+        var num_chunks = Math.ceil(u.file.size / u.settings.chunk_size);
         var handler = function(e) {
             var response = JSON.parse(e.target.responseText);
 
             // the server may also respond with chunks already loaded
             if(response.chunks) {
+                if(response.chunks.length == num_chunks) {
+                    log(response.chunks.length, num_chunks);
+                    return u.get_init_signature(callback, true);
+                }
                 log("Resume upload...")
                 var chunks = response.chunks;
                 u._progress = u._progress || [];
@@ -772,6 +777,7 @@ function mule_upload(input, settings) {
                     u.set_chunk_finished(chunks[i] - 1);
                     u.bytes_started = (u.bytes_started || 0) + u.settings.chunk_size;
                 }
+                log(response);
                 u.upload_id = response.upload_id;
                 u.settings.key = response.key;
             }
@@ -972,7 +978,7 @@ function mule_upload(input, settings) {
     // set a chunk's progress
     Uploader.prototype.set_progress = function(chunk, loaded) {
         var num_chunks = Math.ceil(this.file.size / this.settings.chunk_size);
-        log("Progress: Chunk " + chunk + " / " + num_chunks + ", Bytes " + loaded + " / "
+        log("Progress: Chunk " + (chunk + 1) + " / " + num_chunks + ", Bytes " + loaded + " / "
             + this.settings.chunk_size + " (" + (loaded/this.settings.chunk_size * 100).toFixed(2) + "%)");
         this._progress = this._progress || {};
         this._progress[chunk] = loaded;
