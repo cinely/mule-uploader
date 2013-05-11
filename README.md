@@ -58,9 +58,9 @@ If you'd want example backends in other languages/with other frameworks, let me 
 
 ### How do I run the example locally?
 
-0. Navigate to the project's root, e.g. `cd mule-uploader`
-1. Install requirements.txt: `pip install -r requirements.txt`
-2. Set up environment variables:
+1. Navigate to the project's root, e.g. `cd mule-uploader`
+2. Install requirements.txt: `pip install -r requirements.txt`
+3. Set up environment variables:
    1. `export AWS_ACCESS_KEY=[your access_key]`
    2. `export AWS_SECRET=[your access_key's secret]`
    3. `export BUCKET=[your AWS bucket]`
@@ -71,5 +71,5 @@ If you'd want example backends in other languages/with other frameworks, let me 
 
    You can see and modify these options in `settings.py`.
 
-2. Run `python example_backend.py`
-3. Navigate to `http://localhost:[PORT]/`, where `[PORT]` is the value given at 2.6.
+4. Run `python example_backend.py`
+5. Navigate to `http://localhost:[PORT]/`, where `[PORT]` is the value given at 3.6.
