@@ -32,7 +32,7 @@ In order to use this library, you need the following:
          <AllowedHeader>*</AllowedHeader>
      </CORSRule>
      ```
-     
+
 3. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). Here is an example Python snippet to sign an upload start request:
 
     ```python
@@ -42,7 +42,7 @@ In order to use this library, you need the following:
             .format(date)
     signature = base64.b64encode(hmac.new(AWS_SECRET_KEY, request, sha1).digest())
     ````
-    
+
 4. For detailed instructions about how each of the ajax actions should respond, read the source code; there are six actions:
   * `get_init_signature` - returns a signature for upload initiation -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
   * `get_chunk_signature` - returns a signature for a part upload -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
@@ -52,4 +52,23 @@ In order to use this library, you need the following:
   * `chunk_loaded` - (optional) notifies the server that a chunk has been uploaded; this is needed for browser-refresh resume (the backend will store the chunks in a database, and give the user the file key + upload id + chunks uploaded for the file to be uploaded)
 
 
-If you'd want example backends in other languages/with other frameworks, let me know. 
+If you'd want example backends in other languages/with other frameworks, let me know.
+
+
+### How do I run the example locally?
+
+0. Navigate to the project's root, e.g. `cd mule-uploader`
+1. Install requirements.txt: `pip install -r requirements.txt`
+2. Set up environment variables:
+   1. `export AWS_ACCESS_KEY=[your access_key]`
+   2. `export AWS_SECRET=[your access_key's secret]`
+   3. `export BUCKET=[your AWS bucket]`
+   4. (optionally) `export MIME_TYPE=[your desired mime-type]`. Defaults to `application/octet-stream`
+   5. (optionally) `export DATABASE_URL=[your db url]`. Notice that the db url looks like `postgres://user:password@location:port/db_name` or `sqlite:///file`. Defaults to `sqlite:///database.db`
+   6. (optionally) `export PORT=[your desired port]`. Defaults to `5000`
+   7. (optionally) `export CHUNK_SIZE=[chunk size in bytes]`. Defaults to 6MB i.e. `6291456`
+
+   You can see and modify these options in `settings.py`.
+
+2. Run `python example_backend.py`
+3. Navigate to `http://localhost:[PORT]/`, where `[PORT]` is the value given at 2.6.
