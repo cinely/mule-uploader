@@ -56,7 +56,7 @@ In order to use this library, you need the following:
 If you'd want example backends in other languages/with other frameworks, let me know.
 
 
-### How do I run the example locally?
+#### How do I run the example locally?
 
 1. Navigate to the project's root, e.g. `cd mule-uploader`
 2. Install requirements.txt: `pip install -r requirements.txt`
