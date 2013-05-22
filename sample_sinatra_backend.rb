@@ -41,7 +41,6 @@ class MuleBackendApp < Sinatra::Base
   end
 
   get '/aws/get_all_signatures/' do
-    puts "params: #{params.inspect}"
     content_type :json
     list     = S3UploadRequest.new(:type => :list, :params => params)
     complete = S3UploadRequest.new(:type => :complete, :params => params)
