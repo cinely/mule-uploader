@@ -2,9 +2,12 @@ require 'sinatra'
 require 'json'
 
 class MuleBackendApp < Sinatra::Base
+
+  # Note: This backend does not attempt to persist or retrieve 
+  # information about uploads.
   
   get '/aws/chunk_loaded/' do
-    # TODO: Persist upload information here.
+    # Not implemented yet.
   end
 
   get '/aws/get_init_signature/' do
