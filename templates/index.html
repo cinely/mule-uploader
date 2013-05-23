@@ -28,6 +28,9 @@
                     content_type: "{{ mime_type }}",
                     bucket: "{{ bucket }}",
                     key: "{{ key }}",
+                    {% if ajax_base %}
+                        ajax_base: "{{ ajax_base }}",
+                    {% endif %}
 
 
                     max_size: 5 * (1 << 30), // 5gb

@@ -1,11 +1,25 @@
 require 'sinatra'
 require 'json'
+require 'ruty'
 
+
+# constants
+BUCKET = "bucket"
+AWS_SECRET_KEY = "aws_secret_key"
+AWS_ACCESS_KEY = "aws_access_key"
+MIME_TYPE = "your_mime_type"
+
+# template load location
+Loader = Ruty::Loaders::Filesystem.new(:dirname => '../templates')
+
+# the app views
 class MuleBackendApp < Sinatra::Base
 
-  # Note: This backend does not attempt to persist or retrieve 
+  # Note: This backend does not attempt to persist or retrieve
   # information about uploads.
-  
+
+  # Backend endpoints, as described here:
+  # https://github.com/cinely/mule-uploader#set-up
   get '/aws/chunk_loaded/' do
     # Not implemented yet.
   end
@@ -61,27 +75,44 @@ class MuleBackendApp < Sinatra::Base
     hash.to_json
   end
 
+  # render the index.html template, giving the needed variables
+  get '/' do
+    data = {}
+    data[:ajax_base] = "/aws"
+    data[:aws_access_key] = AWS_ACCESS_KEY
+    data[:bucket] = BUCKET
+    data[:mime_type] = MIME_TYPE
+    data[:key] = rand(10 ** 10)
+    Loader.get_template('index.html').render(data)
+  end
+
+  # serve everything else as static variables
+  get %r{/(.*)} do |path|
+    send_file "../" + path
+  end
+
 end
 
+# handles request signatures
 class S3UploadRequest
 
   require 'base64'
   require 'digest'
 
-  attr_accessor :date, :upload_id, :key, :chunk, :mime_type, 
+  attr_accessor :date, :upload_id, :key, :chunk, :mime_type,
     :bucket, :aws_access_key, :signature
 
   def initialize(data)
     params          = data[:params]
     type            = data[:type]
-    @bucket         = "bucket_name"
-    @aws_secret_key = "aws_secret_key"
-    @aws_access_key = "aws_access_key"
+    @bucket         = BUCKET
+    @aws_secret_key = AWS_SECRET_KEY
+    @aws_access_key = AWS_ACCESS_KEY
     @date           = Time.now.strftime("%a, %d %b %Y %X %Z")
     @upload_id      = params[:upload_id]
     @key            = params[:key]
     @chunk          = params[:chunk]
-    @mime_type      = params[:mime_type]
+    @mime_type      = params[:mime_type] || MIME_TYPE
 
     if type == :init
       @signature = upload_init_signature
