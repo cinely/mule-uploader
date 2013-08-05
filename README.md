@@ -1,7 +1,7 @@
 Mule-upload
 ===========
 
-[You can test the uploader here!](http://tranquil-spire-1625.herokuapp.com/)
+[You can test the uploader here!](http://mule-uploader.com/)
 
 ### Stubborn HTML5 File Uploader for Amazon S3
 
@@ -73,3 +73,13 @@ If you'd want example backends in other languages/with other frameworks, let me 
 
 4. Run `python example_backend.py`
 5. Navigate to `http://localhost:[PORT]/`, where `[PORT]` is the value given at 3.6.
+6. 
+
+#### The fine print
+
+Due to the new technology used by this library, it's only compatible with the following browsers:
+
+* Updated Chrome
+* Updated Firefox
+* Safari 6+
+* not sure about IE
