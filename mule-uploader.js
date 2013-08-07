@@ -633,10 +633,10 @@ function mule_upload(input, settings) {
                     var size = parseInt(xml_parts[i].getElementsByTagName("Size")[0].textContent);
 
                     if(part_number != num_chunks && size != u.settings.chunk_size) {
-                        return; // chunk corrupted
+                        continue; // chunk corrupted
                     } else if(part_number == num_chunks &&
                             size != u.file.size % u.settings.chunk_size) {
-                        return; // final chunk corrupted
+                        continue; // final chunk corrupted
                     }
 
                     parts.push([
