@@ -107,7 +107,7 @@ function mule_upload(input, settings) {
         // is 10,000, so for example, if the chunk size is 6MB, the maximum
         // possible file size is 6MB * 10,000 = ~58GB
         settings.chunk_size = settings.chunk_size || (6 * MB); // default 6MB
-        settings.max_size = settings.max_size || 5 * (1 << 30); // 5GB
+        settings.max_size = settings.max_size || 50 * (1 << 30); // 5GB
 
         // the S3 object key; I recommend to generate this dynamically (e.g.
         // a random string) to avoid unwanted overwrites.

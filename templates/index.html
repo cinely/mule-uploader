@@ -33,7 +33,7 @@
                     {% endif %}
 
 
-                    max_size: 5 * (1 << 30), // 5gb
+                    max_size: 50 * (1 << 30), // 50gb
                     on_error: function() {
                         $('#log').prepend("Error occurred! You can help me fix this by filing a bug report here: https://github.com/cinely/mule-uploader/issues\n");
                     },
