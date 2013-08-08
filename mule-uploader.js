@@ -307,14 +307,14 @@ function mule_upload(input, settings) {
         }
 
         for(var i=0; i < u.settings.num_workers - 1; i++) {
-            var next_chunk = u.get_next_chunk();
+            next_chunk = u.get_next_chunk();
             if(next_chunk !== -1) {
                 u.upload_chunk(next_chunk);
             } else {
                 break;
             }
         }
-    }
+    };
 
     // this uploads a single chunk to S3
     Uploader.prototype.upload_chunk = function(chunk) {
@@ -449,7 +449,7 @@ function mule_upload(input, settings) {
                     // we have a genuine error
 
                     log("Error: ");
-                    log(error_arguments)
+                    log(error_arguments);
 
                     // make sure we don't handle the same error more than once
                     if(error_handled) {
@@ -458,7 +458,7 @@ function mule_upload(input, settings) {
                     error_handled = true;
 
                     // abort the chunk upload
-                    u.set_chunk_uploading(false);
+                    u.set_chunk_uploading(chunk, false);
                     log("Abort");
                     log(xhr);
                     xhr.abort();
@@ -471,9 +471,6 @@ function mule_upload(input, settings) {
                     // re-try the upload
                     setTimeout(function() {
                         if(u.get_state() == "processing") {
-                            // mark the chunk as not uploading
-                            u.set_chunk_uploading(chunk, false);
-
                             // and proceed
                             var next_chunk = u.get_next_chunk();
                             if(next_chunk !== -1) {
