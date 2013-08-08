@@ -462,7 +462,11 @@ function mule_upload(input, settings) {
                     u.set_chunk_uploading(chunk, false);
                     log("Abort");
                     log(xhr);
-                    xhr.abort();
+                    try {
+                        xhr.abort();
+                    } catch(e) {
+                        log(e);
+                    }
 
                     log("Retry chunk: " + chunk);
 
