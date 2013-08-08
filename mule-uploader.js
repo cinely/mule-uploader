@@ -646,7 +646,7 @@ function mule_upload(input, settings) {
     // gets the uploaded chunks from S3. This is useful when comparing
     // the parts known by the uploader to the parts reported by S3, and also
     // for getting the chunk ETag's, which are needed when finishing uploads
-    Uploader.prototype.list_parts = function(callback, error_callback) {
+    Uploader.prototype.list_parts = function(callback, error_callback, part_marker) {
         var u = this;
         u.get_list_signature(function(signature, date) {
             var handler = function(e) {
@@ -662,9 +662,9 @@ function mule_upload(input, settings) {
                 var xml_parts = xml.getElementsByTagName("Part");
                 var num_chunks = Math.ceil(u.file.size / u.settings.chunk_size);
                 for(var i=0; i < xml_parts.length; i++) {
-                    var part_number = parseInt(xml_parts[i].getElementsByTagName("PartNumber")[0].textContent);
+                    var part_number = parseInt(xml_parts[i].getElementsByTagName("PartNumber")[0].textContent, 10);
                     var etag = xml_parts[i].getElementsByTagName("ETag")[0].textContent;
-                    var size = parseInt(xml_parts[i].getElementsByTagName("Size")[0].textContent);
+                    var size = parseInt(xml_parts[i].getElementsByTagName("Size")[0].textContent, 10);
 
                     if(part_number != num_chunks && size != u.settings.chunk_size) {
                         continue; // chunk corrupted
@@ -678,10 +678,22 @@ function mule_upload(input, settings) {
                         etag,
                         size
                     ]);
-                };
-                callback(parts);
-            }
+                }
+                var is_truncated = xml.getElementsByTagName("IsTruncated")[0].textContent;
+                if(is_truncated === "true") {
+                    var part_marker = xml.getElementsByTagName("NextPartNumberMarker")[0].textContent;
+                    u.list_parts(function(new_parts) {
+                        log(new_parts);
+                        callback(parts.concat(new_parts));
+                    }, error_callback, part_marker);
+                } else {
+                    callback(parts);
+                }
+            };
             var path = "/" + u.settings.key + "?uploadId=" + u.upload_id;
+            if(part_marker) {
+                path = path + "&part-number-marker=" + part_marker;
+            }
             var method = "GET";
             var authorization = "AWS " + u.settings.access_key + ":" + signature;
             XHR({
@@ -694,7 +706,7 @@ function mule_upload(input, settings) {
                 }
             });
         });
-    }
+    };
 
     // gets the end signature, needed for finishing an upload
     Uploader.prototype.get_end_signature = function(callback) {
