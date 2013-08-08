@@ -8,9 +8,9 @@
         <script type="text/javascript" src="../mule-uploader.js"></script>
         <script type="text/javascript">
             $(function() {
-                var file = document.getElementById("file")
                 var settings = {
 
+                    input: document.getElementById("file"),
                     access_key: "<?php echo $backend->AWS_ACCESS_KEY ?>",
                     content_type: "<?php echo $backend->MIME_TYPE ?>",
                     bucket: "<?php echo $backend->BUCKET ?>",
@@ -51,7 +51,7 @@
                         $('#log').prepend("Chunk finished uploading\n");
                     }
                 };
-                upload = mule_upload(file, settings);
+                upload = mule_upload(settings);
             });
         </script>
         <link href='http://fonts.googleapis.com/css?family=Carme' rel='stylesheet' type='text/css'>
