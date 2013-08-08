@@ -327,7 +327,7 @@ function mule_upload(input, settings) {
 
         // also make sure we're not already uploading this chunk
         if(u.get_chunk_uploading(chunk)) {
-            log("Already Uploading")
+            log("Already Uploading");
             setTimeout(function() {
                 var next_chunk = u.get_next_chunk();
                 if(next_chunk !== -1) {
@@ -1118,7 +1118,7 @@ function mule_upload(input, settings) {
     }
 
     Uploader.prototype.log_status = function() {
-        log(this.get_total_progress() / this.file.size * 100);
+        // log(this.get_total_progress() / this.file.size * 100);
     }
 
     Uploader.prototype.on_progress = function(f) { u.settings.on_progress = f };
