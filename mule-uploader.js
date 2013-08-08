@@ -31,7 +31,7 @@ function mule_upload(settings) {
         // if no method is given, default to GET
         args.method = args.method || "GET";
 
-        xhr = new XMLHttpRequest();
+        var xhr = new XMLHttpRequest();
         // set the "load" callback if given
         if(args.load_callback && typeof args.load_callback == 'function') {
             xhr.addEventListener("load", args.load_callback, true);
@@ -105,6 +105,7 @@ function mule_upload(settings) {
         // make the input element another possible setting
         // in some cases (e.g. drag & drop) there is no input element
         u.input = settings.file_input;
+        u.file  = settings.file;
 
         // NOTE: For Amazon S3, the minimum chunk size is 5MB
         // we are using 6 for safe measure. Note that the maximum number of chunks
@@ -131,6 +132,17 @@ function mule_upload(settings) {
         // or you'll get an Invalid Signature error. If unsure about the
         // mime type, use application/octet-stream
         settings.content_type = settings.content_type || "application/octet-stream";
+
+
+        // acl can be set to:
+        // private
+        // public-read (* default)
+        // public-read-write
+        // authenticated-read
+        // bucket-owner-read
+        // bucket-owner-full-control
+        // log-delivery-write
+        settings.acl = settings.acl || 'public-read';
 
         // various callbacks
         settings.on_progress = settings.on_progress || function() {};
@@ -176,6 +188,7 @@ function mule_upload(settings) {
     }
 
     Uploader.prototype.upload_file = function(file, force) {
+        var u = this;
         // the `onchange` event may be triggered multiple times, so we
         // must ensure that the callback is only executed the first time
         // also make sure the file is not already set.
@@ -183,7 +196,13 @@ function mule_upload(settings) {
             return false;
         }
 
-        u.file = file;
+        if (file) {
+            u.file = file;
+        }
+
+        if (!u.file) {
+            return false;
+        }
 
         // we use the lastModifiedDate, the file name and size to uniquely
         // identify a file. There may be false positives and negatives,
@@ -249,7 +268,7 @@ function mule_upload(settings) {
                     error_callback: handler,
                     headers: {
                         "x-amz-date": date,
-                        "x-amz-acl": "public-read",
+                        "x-amz-acl": settings.acl,
                         "Authorization": authorization,
                         "Content-Disposition": "attachment; filename=" + u.file.name
                     }
@@ -457,6 +476,8 @@ function mule_upload(settings) {
                     // if already uploaded
                     u.set_state("finished");
 
+                    u.notify_upload_finished();
+
                     // trigger a final progress event callback, with 100%
                     u.settings.on_progress.call(u, u.file.size, u.file.size);
 
@@ -576,6 +597,8 @@ function mule_upload(settings) {
                     log("Finished file.");
                     u.set_state("finished");
                     u.settings.on_progress.call(u, u.file.size, u.file.size); // it's 100% done
+
+                    u.notify_upload_finished();
 
                     // trigger the complete event callback
                     u.settings.on_complete.call(u);
@@ -852,8 +875,11 @@ function mule_upload(settings) {
             }, 1000);
         };
         var url = u.settings.ajax_base + "/get_init_signature/?key=" + u.settings.key
-                + "&filename=" + escape(u.file.name) + "&filesize=" + u.file.size
-                + "&last_modified=" + u.file.lastModifiedDate.valueOf() + (force ? "&force=true" : "");
+                + "&mime_type=" + escape(u.settings.content_type)
+                + "&filename=" + escape(u.file.name)
+                + "&filesize=" + u.file.size
+                + "&last_modified=" + u.file.lastModifiedDate.valueOf()
+                + (force ? "&force=true" : "");
         XHR({
             url: url,
             load_callback: handler,
@@ -882,9 +908,13 @@ function mule_upload(settings) {
                 u.get_all_signatures(callback);
             }, 1000);
         };
-        var url = u.settings.ajax_base + "/get_all_signatures/?key=" + key + "&num_chunks="
-            + num_chunks + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
-            + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
+        var url = u.settings.ajax_base + "/get_all_signatures/?key=" + key 
+                + "&mime_type=" + escape(u.settings.content_type)
+                + "&num_chunks=" + num_chunks
+                + "&upload_id=" + upload_id
+                + "&filename=" + escape(u.file.name)
+                + "&filesize=" + u.file.size
+                + "&last_modified=" + u.file.lastModifiedDate.valueOf();
         XHR({
             url: url,
             load_callback: handler,
@@ -902,6 +932,21 @@ function mule_upload(settings) {
         var key = u.settings.key;
         var upload_id = u.upload_id;
         var url = u.settings.ajax_base + '/chunk_loaded/?key=' + key + "&chunk=" + (chunk + 1)
+            + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
+            + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
+        XHR({
+            url: url
+        });
+    };
+
+    Uploader.prototype.notify_upload_finished = function(callback) {
+        var u = this;
+        if(u.get_state() != "finished") {
+            return;
+        }
+        var key = u.settings.key;
+        var upload_id = u.upload_id;
+        var url = u.settings.ajax_base + '/upload_finished/?key=' + key
             + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
             + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
         XHR({
