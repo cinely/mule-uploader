@@ -72,7 +72,7 @@ function mule_upload(input, settings) {
             xhr.send();
         }
         return xhr;
-    }
+    };
 
     // helper constants for more readable code
     var KB = 1024;
@@ -375,8 +375,9 @@ function mule_upload(input, settings) {
 
             // the "readystatechange" handler
             var handler = function(e) {
-                // we only care about the "done" event triggered while processing
-                if(e.target.readyState != this.DONE || u.get_state() != "processing" || e.target.status == 0) {
+                // we care about the "done" event triggered while processing
+                if(e.target.readyState != this.DONE || u.get_state() != "processing") {
+                    log(e);
                     return;
                 }
 
