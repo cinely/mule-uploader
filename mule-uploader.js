@@ -306,7 +306,7 @@ function mule_upload(input, settings) {
             u.finish_upload();
         }
 
-        for(var i=0; i < u.settings.num_workers; i++) {
+        for(var i=0; i < u.settings.num_workers - 1; i++) {
             var next_chunk = u.get_next_chunk();
             if(next_chunk !== -1) {
                 u.upload_chunk(next_chunk);
