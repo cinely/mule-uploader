@@ -7,11 +7,11 @@
  */
 
 function mule_upload(input, settings) {
-    var debug = true;
+    var debug = false;
 
     // custom logging function that prepends a text for easy identification;
     // it is also toggled by the `debug` flag
-    var log = function() {}
+    var log = function() {};
     if(debug && console && console.log) {
         log = function() {
             var args = ["[MuleUploader]"];
@@ -19,7 +19,7 @@ function mule_upload(input, settings) {
                 args.push(arguments[i]);
             }
             return console.log.apply(console, args);
-        }
+        };
     }
 
     // AJAX helper. It takes an object that contains load_callback, error_callback,

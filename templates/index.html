@@ -21,7 +21,8 @@
         </style>
         <script type="text/javascript">
             $(function() {
-                var file = document.getElementById("file")
+                var file = document.getElementById("file");
+                var last_update = null;
                 var settings = {
 
                     access_key: "{{ aws_access_key }}",
@@ -48,11 +49,14 @@
                         $('#log').prepend("Upload started\n");
                     },
                     on_progress: function(bytesUploaded, bytesTotal) {
-                        var percent = bytesUploaded / bytesTotal * 100;
-                        $('.progress .bar').width(percent / 100 * $('.progress').width());
-                        $('#log').prepend("Upload progress: " + bytesUploaded + " / "
-                            + bytesTotal + " (" + parseInt(percent) + "." + parseInt(percent * 10) % 10
-                            + "%)\n");
+                        if(!last_update || (new Date - last_update) > 1500) {
+                            last_update = new Date;
+                            var percent = bytesUploaded / bytesTotal * 100;
+                            $('.progress .bar').width(percent / 100 * $('.progress').width());
+                            $('#log').prepend("Upload progress: " + bytesUploaded + " / "
+                                + bytesTotal + " (" + parseInt(percent) + "." + parseInt(percent * 10) % 10
+                                + "%)\n");
+                        }
                     },
                     on_init: function() {
                         $('#log').prepend("Uploader initialized\n");
