@@ -7,7 +7,7 @@
  */
 
 function mule_upload(input, settings) {
-    var debug = false;
+    var debug = true;
 
     // custom logging function that prepends a text for easy identification;
     // it is also toggled by the `debug` flag
