@@ -177,7 +177,7 @@ function mule_upload(settings) {
                 // the uploader doesn't support multiple uploads at this time, so we
                 // get the first file
                 var file = e.target.files[0];
-                u.upload_file(file, false);
+                u.upload_file(file, force);
             };
         }
         
@@ -403,6 +403,7 @@ function mule_upload(settings) {
                     u.upload_chunk(next_chunk);
                 } else {
                     if(u.upload_finished()) {
+                        log("No next chunk; finish upload");
                         u.finish_upload();
                     }
                 }
@@ -615,7 +616,6 @@ function mule_upload(settings) {
                     // 404 = NoSuchUpload = check if already finished
                     // if so, start a new upload
                     u.cancel(function() {
-                        // before this passed in a null, which will error out
                         u.upload_file(u.file, true);
                     });
                 } else {
