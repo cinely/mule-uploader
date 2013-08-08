@@ -683,7 +683,6 @@ function mule_upload(input, settings) {
                 if(is_truncated === "true") {
                     var part_marker = xml.getElementsByTagName("NextPartNumberMarker")[0].textContent;
                     u.list_parts(function(new_parts) {
-                        log(new_parts);
                         callback(parts.concat(new_parts));
                     }, error_callback, part_marker);
                 } else {
