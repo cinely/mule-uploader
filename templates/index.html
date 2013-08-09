@@ -21,10 +21,10 @@
         </style>
         <script type="text/javascript">
             $(function() {
-                var file = document.getElementById("file");
                 var last_update = null;
                 var settings = {
 
+                    input: document.getElementById("file"),
                     access_key: "{{ aws_access_key }}",
                     content_type: "{{ mime_type }}",
                     bucket: "{{ bucket }}",
@@ -70,7 +70,7 @@
                         $('#log').prepend("Chunk finished uploading\n");
                     }
                 };
-                upload = mule_upload(file, settings);
+                upload = mule_upload(settings);
             });
         </script>
         <link href='http://fonts.googleapis.com/css?family=Carme' rel='stylesheet' type='text/css'>
