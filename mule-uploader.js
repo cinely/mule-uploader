@@ -449,9 +449,12 @@ function mule_upload(settings) {
                 } else {
                     var interval = setInterval(function() {
                         var chunk = u.get_next_chunk();
-                        if(chunk !== -1) {
+                        if(chunk != -1) {
                             clearInterval(interval);
                             u.upload_chunk(chunk);
+                        } else if(u.upload_finished()) {
+                            clearInterval(interval);
+                            u.finish_upload();
                         }
                     }, 1000);
                 }
