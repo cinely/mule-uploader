@@ -174,13 +174,13 @@ function mule_upload(settings) {
                     return false;
                 }
 
-                // the uploader doesn't support multiple uploads at this time, so we
-                // get the first file
+                // the uploader doesn't support multiple uploads at this time,
+                // so we get the first file
                 var file = e.target.files[0];
                 u.upload_file(file, force);
             };
         }
-        
+
         // trigger the init event callback
         setTimeout(function() {
             u.settings.on_init.apply(u);
@@ -908,7 +908,7 @@ function mule_upload(settings) {
                 u.get_all_signatures(callback);
             }, 1000);
         };
-        var url = u.settings.ajax_base + "/get_all_signatures/?key=" + key 
+        var url = u.settings.ajax_base + "/get_all_signatures/?key=" + key
                 + "&mime_type=" + escape(u.settings.content_type)
                 + "&num_chunks=" + num_chunks
                 + "&upload_id=" + upload_id
