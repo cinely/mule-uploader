@@ -115,7 +115,7 @@ function mule_upload(settings) {
         settings.max_size = settings.max_size || 50 * (1 << 30); // 5GB
 
         // the number of parallel upload xhr's
-        settings.num_workers = settings.num_workers || 3;
+        settings.num_workers = settings.num_workers || 4;
 
         // the S3 object key; I recommend to generate this dynamically (e.g.
         // a random string) to avoid unwanted overwrites.
@@ -146,6 +146,7 @@ function mule_upload(settings) {
 
         // various callbacks
         settings.on_progress = settings.on_progress || function() {};
+        settings.on_chunk_progress = settings.on_chunk_progress || function() {};
         settings.on_select = settings.on_select || function() {};
         settings.on_error = settings.on_error || function() {};
         settings.on_complete = settings.on_complete || function() {};
@@ -244,13 +245,13 @@ function mule_upload(settings) {
 
         // initialize the file upload
         // we need the `init` signature for this
+        u.settings.on_select.call(u, file);
         u.get_init_signature(function(signature, date) {
             if(!u.upload_id) {
                 // the backend doesn't report an older upload
                 var authorization = "AWS " + settings.access_key + ":" + signature;
                 var handler = function(e) {
                     // trigger the on_select event callback
-                    u.settings.on_select.call(u, file);
                     var xml = e.target.responseXML;
 
                     // get the given upload id
@@ -288,6 +289,7 @@ function mule_upload(settings) {
                         u.upload_id = null;
                         this._loaded_chunks = null;
                         u._progress = null;
+                        u._total_progress = null;
                         u._loaded_chunks = null;
                         u._uploading_chunks = null;
                         u._chunks = null;
@@ -435,6 +437,7 @@ function mule_upload(settings) {
                 clearInterval(u._intervals[chunk]);
 
                 // mark the chunk as finished
+                u.set_progress(chunk, u.get_chunk_size(chunk));
                 u.set_chunk_finished(chunk);
                 u.set_chunk_uploading(chunk, false);
 
@@ -499,7 +502,6 @@ function mule_upload(settings) {
                     // abort the chunk upload
                     u.set_chunk_uploading(chunk, false);
                     log("Abort");
-                    log(xhr);
                     try {
                         xhr.abort();
                     } catch(e) {
@@ -849,7 +851,6 @@ function mule_upload(settings) {
             // the server may also respond with chunks already loaded
             if(response.chunks) {
                 if(response.chunks.length == num_chunks) {
-                    log(response.chunks.length, num_chunks);
                     return u.get_init_signature(callback, true);
                 }
                 log("Resume upload...");
@@ -857,7 +858,10 @@ function mule_upload(settings) {
                 u._progress = u._progress || [];
                 for(var i=0; i < chunks.length; i++) {
                     log("Chunk already uploaded: " + (chunks[i] - 1));
-                    u._progress[chunks[i]] = u.settings.chunk_size;
+                    var chunk_size = u.get_chunk_size(chunks[i]);
+                    u._progress[chunks[i]] = chunk_size;
+                    u._total_progress += chunk_size;
+
                     u.add_loaded_chunk(chunks[i] - 1);
                     u.set_chunk_finished(chunks[i] - 1);
                     u.bytes_started = (u.bytes_started || 0) + u.settings.chunk_size;
@@ -1035,7 +1039,6 @@ function mule_upload(settings) {
             u.set_chunk_finished(part_number - 1);
             loaded.push(part_number - 1);
         }
-        log(loaded);
         for(var i=0; i < num_chunks; i++) {
             if(loaded.indexOf(i) === -1) {
                 log("Chunk not uploaded: ", i);
@@ -1064,16 +1067,15 @@ function mule_upload(settings) {
         var num_chunks = Math.ceil(this.file.size / this.settings.chunk_size);
         this.log_status();
         this._progress = this._progress || {};
+        this._total_progress = (this._total_progress || 0 ) + loaded - (this._progress[chunk] || 0);
         this._progress[chunk] = loaded;
+        this.settings.on_chunk_progress.call(
+            this, chunk, loaded, this.get_chunk_size(chunk));
     };
 
     // gets the total bytes uploaded
     Uploader.prototype.get_total_progress = function() {
-        var total = 0;
-        for(var x in this._progress) {
-            total += this._progress[x];
-        }
-        return total;
+        return this._total_progress || 0;
     };
 
     // returns true if a chunk is already uploaded
@@ -1176,13 +1178,14 @@ function mule_upload(settings) {
         // log(this.get_total_progress() / this.file.size * 100);
     }
 
-    Uploader.prototype.on_progress = function(f) { u.settings.on_progress = f };
-    Uploader.prototype.on_select = function(f) { u.settings.on_select = f };
-    Uploader.prototype.on_error = function(f) { u.settings.on_error = f };
-    Uploader.prototype.on_complete = function(f) { u.settings.on_complete = f };
-    Uploader.prototype.on_init = function(f) { u.settings.on_init = f };
-    Uploader.prototype.on_start = function(f) { u.settings.on_start = f };
-    Uploader.prototype.on_chunk_uploaded = function(f) { u.settings.on_chunk_uploaded = f };
+    Uploader.prototype.on_chunk_progress = function(f) { u.settings.on_chunk_progress = f; };
+    Uploader.prototype.on_progress = function(f) { u.settings.on_progress = f; };
+    Uploader.prototype.on_select = function(f) { u.settings.on_select = f; };
+    Uploader.prototype.on_error = function(f) { u.settings.on_error = f; };
+    Uploader.prototype.on_complete = function(f) { u.settings.on_complete = f; };
+    Uploader.prototype.on_init = function(f) { u.settings.on_init = f; };
+    Uploader.prototype.on_start = function(f) { u.settings.on_start = f; };
+    Uploader.prototype.on_chunk_uploaded = function(f) { u.settings.on_chunk_uploaded = f; };
 
     return new Uploader(settings);
 };

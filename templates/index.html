@@ -18,10 +18,42 @@
                 width: 100%;
                 text-align: center;
             }
+            .upload-progress {
+                width: 596px;
+                height: 25px;
+                background-color: white;
+                margin: 10px 2px;
+            }
+            .upload-progress .chunk {
+                background-color: navy;
+                display: inline-block;
+            }
+            h1 {
+                font-family: "Carme";
+            }
+            #log {
+                width: 586px;
+            }
+            .email {
+                unicode-bidi: bidi-override;
+                direction: rtl;
+            }
         </style>
         <script type="text/javascript">
+            var format_size = function(num_bytes) {
+                if(num_bytes <= 1024 * 0.8) {
+                    return num_bytes + " B";
+                } else if(num_bytes <= 1024 * 1024 * 0.8) {
+                    return parseInt(num_bytes / 1024, 10) + "." + parseInt(num_bytes / 1024 * 10, 10) % 10 + " KB";
+                } else if(num_bytes <= 1024 * 1024 * 1024 * 0.8) {
+                    return parseInt(num_bytes / 1024 / 1024, 10) + "." + parseInt(num_bytes / 1024 / 1024 * 10, 10) % 10 + " MB";
+                } else {
+                    return parseInt(num_bytes / 1024 / 1024 / 1024, 10) + "." + parseInt(num_bytes / 1024 / 1024 / 1024 * 10, 10) % 10 + " GB";
+                }
+            }
             $(function() {
                 var last_update = null;
+                var last_uploaded = null;
                 var settings = {
 
                     file_input: document.getElementById("file"),
@@ -34,12 +66,25 @@
                     {% endif %}
 
 
-                    max_size: 50 * (1 << 30), // 50gb
+                    max_size: 50 * (1 << 30), // 50 gb
                     on_error: function() {
                         $('#log').prepend("Error occurred! You can help me fix this by filing a bug report here: https://github.com/cinely/mule-uploader/issues\n");
                     },
                     on_select: function(fileObj) {
                         $('#log').prepend("File selected\n");
+
+                        var size = fileObj.size;
+                        var num_chunks = Math.ceil(size / (6 * 1024 * 1024));
+                        var chunk_width = $(".upload-progress").width() / num_chunks;
+                        for(var i=0; i < num_chunks; i++) {
+                            var chunk = $("<div class='chunk'>");
+                            chunk.css({
+                                'width': chunk_width + 'px',
+                                'height': "0%",
+                            });
+                            $(".upload-progress").append(chunk);
+                        }
+                        $('.upload-progress').css('width', null);
                     },
                     on_start: function(fileObj) {
                         $('#explanation').animate({'opacity': 0}, 'slow', function() {
@@ -48,15 +93,28 @@
                         });
                         $('#log').prepend("Upload started\n");
                     },
-                    on_progress: function(bytesUploaded, bytesTotal) {
-                        if(!last_update || (new Date - last_update) > 1500) {
+                    on_progress: function(bytes_uploaded, bytes_total) {
+                        if(!last_update || (new Date - last_update) > 1000) {
+                            var percent = bytes_uploaded / bytes_total * 100;
+                            var speed = (bytes_uploaded - last_uploaded) / (new Date - last_update) * 1000;
                             last_update = new Date;
-                            var percent = bytesUploaded / bytesTotal * 100;
+                            last_uploaded = bytes_uploaded;
                             $('.progress .bar').width(percent / 100 * $('.progress').width());
-                            $('#log').prepend("Upload progress: " + bytesUploaded + " / "
-                                + bytesTotal + " (" + parseInt(percent) + "." + parseInt(percent * 10) % 10
-                                + "%)\n");
+                            var log = "Upload progress: " + format_size(bytes_uploaded) + " / "
+                                + format_size(bytes_total) + " (" + parseInt(percent, 10) + "." + parseInt(percent * 10, 10) % 10
+                                + "%)";
+                            if(speed) {
+                                log += "; speed: " + format_size(speed) + "/s";
+                            }
+                            $('#log').prepend(log + "\n");
                         }
+                    },
+                    on_chunk_progress: function(chunk, progress, total) {
+                        var height = $('.upload-progress').height();
+                        $($('.upload-progress .chunk').get(chunk)).css({
+                            'height': Math.ceil((progress / total) * height) + "px",
+                            'margin-top': Math.floor(((total - progress) / total) * height) + "px"
+                        });
                     },
                     on_init: function() {
                         $('#log').prepend("Uploader initialized\n");
@@ -74,22 +132,6 @@
             });
         </script>
         <link href='http://fonts.googleapis.com/css?family=Carme' rel='stylesheet' type='text/css'>
-        <style>
-            h1 {
-                font-family: "Carme";
-            }
-            .progress {
-                width: 600px;
-                height: 20px;
-            }
-            #log {
-                width: 586px;
-            }
-            .email {
-                unicode-bidi: bidi-override;
-                direction: rtl;
-            }
-        </style>
     </head>
     <body>
         <div class="container">
@@ -109,8 +151,7 @@
                 </span>
                 <br/>
                 <input type="file" id="file" />
-                <div class="progress progress-striped active">
-                    <div class="bar"></div>
+                <div class="upload-progress">
                 </div>
                 <div style="clear: both"></div>
                 <textarea id="log" rows="10"></textarea>
