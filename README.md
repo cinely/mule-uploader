@@ -9,6 +9,7 @@ Mule-upload
 
 * VERY resilient against upload interruptions. Even if your internet connection goes down, you accidentally close the browser or you want to continue the upload tomorrow, your upload progress is saved.
 * HTML5 - uses the `File`, `FileList` and `Blob` objects
+* Speed - it uses four workers for (potentially) four time increase in upload speed. E.g. on my computer I got 2.5-3 MB/s vs. < 1MB/s using only one worker.
 
 In order to use this library, you need the following:
 
