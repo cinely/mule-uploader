@@ -57,8 +57,23 @@ function mule_upload(settings) {
             xhr.addEventListener('timeout', timeout_callback);
         }
 
+        // adding extra params as needed
+        var url = args.url;
+        if(args.extra_params) {
+            for(param_name in args.extra_params) {
+                if(url.indexOf('?') !== -1) {
+                    url += "&";
+                } else {
+                    url += "?";
+                }
+
+                url += encodeURIComponent(param_name) + "=";
+                url += encodeURIComponent(args.extra_params[param_name]);
+            }
+        }
+
         // open the xhr connection
-        xhr.open(args.method, args.url);
+        xhr.open(args.method, url);
 
         // set the headers
         for(var header in args.headers) {
@@ -153,6 +168,9 @@ function mule_upload(settings) {
         settings.on_init = settings.on_init || function() {};
         settings.on_start = settings.on_start || function() {};
         settings.on_chunk_uploaded = settings.on_chunk_uploaded || function() {};
+
+        // extra parameters to give to the backend
+        settings.extra_params = settings.extra_params || {};
 
         // the location prefix of the uploader's backend
         settings.ajax_base = settings.ajax_base || "/upload-backend";
@@ -504,6 +522,8 @@ function mule_upload(settings) {
 
                     // abort the chunk upload
                     u.set_chunk_uploading(chunk, false);
+                    u.set_chunk_finished(chunk, false);
+                    u.set_progress(chunk, 0);
                     log("Abort");
                     try {
                         xhr.abort();
@@ -520,7 +540,7 @@ function mule_upload(settings) {
                     setTimeout(function() {
                         if(u.get_state() == "processing") {
                             // and proceed
-                            var next_chunk = u.get_next_chunk();
+                            var next_chunk = u.get_next_chunk(chunk);
                             if(next_chunk !== -1) {
                                 u.get_all_signatures(function() {
                                     u.upload_chunk(u.get_next_chunk());
@@ -776,6 +796,7 @@ function mule_upload(settings) {
 
         XHR({
             url: url,
+            extra_params: u.settings.extra_params,
             load_callback: handler,
             error_callback: error_handler
         });
@@ -807,9 +828,10 @@ function mule_upload(settings) {
         var url = u.settings.ajax_base + "/get_list_signature/?upload_id=" + escape(this.upload_id)
                 + "&key=" + this.settings.key;
         XHR({
+            url: url,
+            extra_params: u.settings.extra_params,
             load_callback: handler,
-            error_callback: error_handler,
-            url: url
+            error_callback: error_handler
         });
     };
 
@@ -838,9 +860,10 @@ function mule_upload(settings) {
             + (chunk + 1) + "&upload_id=" + escape(this.upload_id)
             + "&key=" + this.settings.key;
         XHR({
+            url: url,
+            extra_params: u.settings.extra_params,
             load_callback: handler,
-            error_callback: error_handler,
-            url: url
+            error_callback: error_handler
         });
     };
 
@@ -889,6 +912,7 @@ function mule_upload(settings) {
                 + (force ? "&force=true" : "");
         XHR({
             url: url,
+            extra_params: u.settings.extra_params,
             load_callback: handler,
             error_callback: error_handler
         });
@@ -924,6 +948,7 @@ function mule_upload(settings) {
                 + "&last_modified=" + u.file.lastModifiedDate.valueOf();
         XHR({
             url: url,
+            extra_params: u.settings.extra_params,
             load_callback: handler,
             error_callback: error_handler
         });
@@ -942,7 +967,8 @@ function mule_upload(settings) {
             + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
             + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
         XHR({
-            url: url
+            url: url,
+            extra_params: u.settings.extra_params
         });
     };
 
@@ -957,7 +983,8 @@ function mule_upload(settings) {
             + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
             + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
         XHR({
-            url: url
+            url: url,
+            extra_params: u.settings.extra_params
         });
     };
 
@@ -1142,9 +1169,12 @@ function mule_upload(settings) {
     };
 
     // get next chunk to be uploaded; if all chunks are done, return -1
-    Uploader.prototype.get_next_chunk = function() {
+    Uploader.prototype.get_next_chunk = function(chunk) {
         var u = this;
         u._init_chunks();
+        if(chunk && !u._chunks[chunk] && !u.get_chunk_uploading(chunk)) {
+            return chunk;
+        }
         for(var i=0; i < u._chunks.length; i++) {
             if(!u._chunks[i] && !u.get_chunk_uploading(i)) {
                 return i;
