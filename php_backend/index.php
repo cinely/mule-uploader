@@ -10,7 +10,7 @@
             $(function() {
                 var settings = {
 
-                    input: document.getElementById("file"),
+                    file_input: document.getElementById("file"),
                     access_key: "<?php echo $backend->AWS_ACCESS_KEY ?>",
                     content_type: "<?php echo $backend->MIME_TYPE ?>",
                     bucket: "<?php echo $backend->BUCKET ?>",

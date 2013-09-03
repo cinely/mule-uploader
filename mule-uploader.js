@@ -225,7 +225,7 @@ function mule_upload(settings) {
 
         // we use the lastModifiedDate, the file name and size to uniquely
         // identify a file. There may be false positives and negatives,
-        // but the chance for a false positive is basically zero
+        // but the chance for a false positive is basically zero.
         // some browsers don't report the last modified date, so we default
         // to a blank date
         u.file.lastModifiedDate = u.file.lastModifiedDate || new Date(0);
