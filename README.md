@@ -36,15 +36,8 @@ In order to use this library, you need the following:
      </CORSRule>
      ```
 
-3. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). Here is an example Python snippet to sign an upload start request:
-
-    ```python
-    import time
-    sign_date = time.strftime("%a, %d %b %Y %X %Z", time.localtime())
-    request = "POST\n\n\n\nx-amz-acl:public-read\nx-amz-date:{}\n/some_key?uploads" \
-            .format(date)
-    signature = base64.b64encode(hmac.new(AWS_SECRET_KEY, request, sha1).digest())
-    ````
+3. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). 
+Here are code samples for creating the signing key: http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html
 
 4. For detailed instructions about how each of the ajax actions should respond, read the source code; there are two actions:
   * `signing_key` - returns a signature for authentication -- http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html . Also returns key/upload\_id/chunks if the file upload can be resumed. Should also return a backup\_key to be used in case that the first one is not usable.
