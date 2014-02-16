@@ -8,8 +8,8 @@ Mule-upload
 #### Features:
 
 * VERY resilient against upload interruptions. Even if your internet connection goes down, you accidentally close the browser or you want to continue the upload tomorrow, your upload progress is saved.
-* HTML5 - uses the `File`, `FileList` and `Blob` objects
-* Speed - it uses four workers for (potentially) four time increase in upload speed. E.g. on my computer I got 2.5-3 MB/s vs. < 1MB/s using only one worker.
+* HTML5 - uses the `File`, `FileList`, `FileReader`, `Worker` and `Blob` objects
+* Speed - it uses multiple workers for (potentially) four time increase in upload speed. E.g. on my computer I got 2.5-3 MB/s vs. < 1MB/s using only one worker. There is a tradeoff between upload speed and CPU consumption though.
 
 In order to use this library, you need the following:
 
@@ -19,6 +19,7 @@ In order to use this library, you need the following:
 
 #### Set up:
 
+0. The `<script>` element _must_ have `id="mule"`, like this: `<script type="text/javascript" id="mule" src="mule-uploader.js"></script>`. This is needed for Web Workers.
 1. You need to create an Amazon S3 bucket for uploads
 2. You need to edit your Amazon S3 CORS configuration to allow communication from your domain. Here is what I use:
 
@@ -45,12 +46,8 @@ In order to use this library, you need the following:
     signature = base64.b64encode(hmac.new(AWS_SECRET_KEY, request, sha1).digest())
     ````
 
-4. For detailed instructions about how each of the ajax actions should respond, read the source code; there are six actions:
-  * `get_init_signature` - returns a signature for upload initiation -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
-  * `get_chunk_signature` - returns a signature for a part upload -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
-  * `get_list_signature` - returns a signature for listing all the uploaded parts -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
-  * `get_end_signature` - returns a signature for ending an upload -- http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
-  * `get_all_signatures` - (optional) based on a file `key` / `upload_id` and file size, it returns the list and end signatures, as well as signatures for all chunk uploads
+4. For detailed instructions about how each of the ajax actions should respond, read the source code; there are two actions:
+  * `signing_key` - returns a signature for authentication -- http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html . Also returns key/upload\_id/chunks if the file upload can be resumed. Should also return a backup\_key to be used in case that the first one is not usable.
   * `chunk_loaded` - (optional) notifies the server that a chunk has been uploaded; this is needed for browser-refresh resume (the backend will store the chunks in a database, and give the user the file key + upload id + chunks uploaded for the file to be uploaded)
 
 
@@ -64,17 +61,17 @@ If you'd want example backends in other languages/with other frameworks, let me 
 3. Set up environment variables:
    1. `export AWS_ACCESS_KEY=[your access_key]`
    2. `export AWS_SECRET=[your access_key's secret]`
-   3. `export BUCKET=[your AWS bucket]`
-   4. (optionally) `export MIME_TYPE=[your desired mime-type]`. Defaults to `application/octet-stream`
-   5. (optionally) `export DATABASE_URL=[your db url]`. Notice that the db url looks like `postgres://user:password@location:port/db_name` or `sqlite:///file`. Defaults to `sqlite:///database.db`
-   6. (optionally) `export PORT=[your desired port]`. Defaults to `5000`
-   7. (optionally) `export CHUNK_SIZE=[chunk size in bytes]`. Defaults to 6MB i.e. `6291456`
+   3. `export AWS_REGION=[your bucket's region]`
+   4. `export BUCKET=[your AWS bucket]`
+   5. (optionally) `export MIME_TYPE=[your desired mime-type]`. Defaults to `application/octet-stream`
+   6. (optionally) `export DATABASE_URL=[your db url]`. Notice that the db url looks like `postgres://user:password@location:port/db_name` or `sqlite:///file`. Defaults to `sqlite:///database.db`
+   7. (optionally) `export PORT=[your desired port]`. Defaults to `5000`
+   8. (optionally) `export CHUNK_SIZE=[chunk size in bytes]`. Defaults to 6MB i.e. `6291456`
 
    You can see and modify these options in `settings.py`.
 
 4. Run `python example_backend.py`
-5. Navigate to `http://localhost:[PORT]/`, where `[PORT]` is the value given at 3.6.
-6. 
+5. Navigate to `http://localhost:[PORT]/`, where `[PORT]` is the value given at 3.7.
 
 #### The fine print
 

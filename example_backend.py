@@ -6,7 +6,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from werkzeug import SharedDataMiddleware
 from hashlib import sha1
 from settings import DEBUG, AWS_ACCESS_KEY, AWS_SECRET, MIME_TYPE, BUCKET
-from settings import ENGINE, PORT, CHUNK_SIZE
+from settings import ENGINE, PORT, CHUNK_SIZE, AWS_REGION
+from urllib import quote
+from datetime import datetime
 
 import os
 import hmac
@@ -14,6 +16,7 @@ import base64
 import time
 import json
 import random
+import hashlib
 
 
 ## The Upload DB Model
@@ -60,50 +63,67 @@ def teardown_db(exception=None):
 
 ## Helper Functions
 
-def _process_string(string):
-    return base64.b64encode(
-        hmac.new(AWS_SECRET,
-                 string, sha1).digest())
+def sign(key, msg):
+    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
 
-def _http_date():
-    return time.strftime("%a, %d %b %Y %X %Z", time.localtime())
+def getSignatureKey(key, dateStamp, regionName, serviceName):
+    print key, dateStamp, regionName, serviceName
+    kDate = sign(("AWS4" + key).encode("utf-8"), dateStamp)
+    kRegion = sign(kDate, regionName)
+    kService = sign(kRegion, serviceName)
+    kSigning = sign(kService, "aws4_request")
+    return kSigning
 
 
-def _action_init(key, date=None):
-    date = date or _http_date()
-    return _process_string(
-        "POST\n\n\n\nx-amz-acl:public-read\nx-amz-date:{}\n/{}/{}?uploads".format(
-            date, BUCKET, key)), date
-
-
-def _action_chunk(key, upload_id, chunk, date=None):
-    date = date or _http_date()
-    return _process_string(
-        "PUT\n\n{}\n\nx-amz-date:{}\n/{}/{}?partNumber={}&uploadId={}".format(
-            MIME_TYPE, date, BUCKET, key, chunk, upload_id)), date
-
-
-def _action_list(key, upload_id, date=None):
-    date = date or _http_date()
-    return _process_string(
-        "GET\n\n\n\nx-amz-date:{}\n/{}/{}?uploadId={}".format(
-            date, BUCKET, key, upload_id)), date
-
-
-def _action_end(key, upload_id, date=None):
-    date = date or _http_date()
-    return _process_string(
-        "POST\n\n{}\n\nx-amz-date:{}\n/{}/{}?uploadId={}".format(
-        MIME_TYPE, date, BUCKET, key, upload_id)), date
-
-
-def _action_delete(key, upload_id, date=None):
-    date = date or _http_date()
-    return _process_string("DELETE\n\n\n\nx-amz-date:{}\n/{}/{}?uploadId={}".format(
-                           date, BUCKET, key, upload_id)), date
+def _signing_key(date):
+    return getSignatureKey(
+        AWS_SECRET, date.strftime("%Y%m%d"), AWS_REGION, "s3").encode('hex')
 
 ## Actual backend
+
+
+@app.route("/upload-backend/signing_key/")
+def signing_key():
+    date = datetime.utcnow()
+    key = _signing_key(date)
+
+    filename = request.args['filename']
+    filesize = request.args['filesize']
+    last_modified = request.args['last_modified']
+
+    data = {
+        "date": date.isoformat(),
+        "signature": key,
+        "access_key": AWS_ACCESS_KEY,
+        "region": AWS_REGION,
+        "bucket": BUCKET,
+        "backup_key": str(random.randint(1, 1000000)),
+    }
+
+    try:
+        assert 'force' not in request.args
+        u = db.query(Upload).filter(
+            Upload.filename == filename,
+            Upload.filesize == filesize,
+            Upload.last_modified == last_modified
+        ).first()
+        assert u
+
+        data.update({
+            "key": u.key,
+            "upload_id": u.upload_id,
+            "chunks": map(int, u.chunks_uploaded.split(',')),
+        })
+    except AssertionError:
+        db.query(Upload).filter(
+            Upload.filename == filename,
+            Upload.filesize == filesize,
+            Upload.last_modified == last_modified
+        ).delete()
+        db.commit()
+
+    return json.dumps(data)
 
 
 @app.route("/upload-backend/<action>/")
@@ -111,7 +131,6 @@ def upload_action(action):
     key = request.args.get('key')
     upload_id = request.args.get('upload_id')
     chunk = request.args.get('chunk')
-    string = date = None
 
     if action == 'chunk_loaded':
         filename = request.args['filename']
@@ -145,71 +164,7 @@ def upload_action(action):
                 db.add(u)
                 db.commit()
 
-        return ''
-
-    if action == 'get_all_signatures':
-        date = _http_date()
-        list_signature, _ = _action_list(key, upload_id, date)
-        end_signature, _ = _action_end(key, upload_id, date)
-        delete_signature, _ = _action_delete(key, upload_id, date)
-        num_chunks = int(request.args['num_chunks'])
-        chunk_signatures = dict([(chunk, (_action_chunk(key, upload_id, chunk, date)))
-                                for chunk in xrange(1, num_chunks + 1)])
-
-        return json.dumps({
-            'list_signature': [list_signature, date],
-            'end_signature': [end_signature, date],
-            'chunk_signatures': chunk_signatures,
-        })
-
-    if action == 'get_init_signature':
-        filename = request.args['filename']
-        filesize = request.args['filesize']
-        last_modified = request.args['last_modified']
-
-        try:
-            assert 'force' not in request.args
-            u = db.query(Upload).filter(
-                Upload.filename == filename,
-                Upload.filesize == filesize,
-                Upload.last_modified == last_modified
-            ).first()
-            assert u
-
-            string, date = _action_init(u.key)
-            return json.dumps({
-                "signature": string,
-                "date": date,
-                "key": u.key,
-                "upload_id": u.upload_id,
-                "chunks": map(int, u.chunks_uploaded.split(','))
-            })
-        except AssertionError:
-            db.query(Upload).filter(
-                Upload.filename == filename,
-                Upload.filesize == filesize,
-                Upload.last_modified == last_modified
-            ).delete()
-            db.commit()
-
-        string, date = _action_init(key)
-
-    elif action == 'get_chunk_signature':
-        string, date = _action_chunk(key, upload_id, chunk)
-
-    elif action == 'get_list_signature':
-        string, date = _action_list(key, upload_id)
-
-    elif action == 'get_end_signature':
-        string, date = _action_end(key, upload_id)
-
-    elif action == 'get_delete_signature':
-        string, date = _action_delete(key, upload_id)
-
-    return json.dumps({
-        'signature': string,
-        'date': date,
-    })
+    return ''
 
 
 ## Static files (debugging only)

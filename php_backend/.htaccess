@@ -1,8 +1,0 @@
-SetEnv AWS_ACCESS_KEY [your_aws_access_key]
-SetEnv AWS_SECRET [your_aws_secret]
-SetEnv BUCKET [your_s3_bucket]
-SetEnv MIME_TYPE [the_mime_type]
-
-RewriteEngine On
-RewriteRule ^$ example_backend.php
-RewriteRule ^backend/(.*)/$ example_backend.php?action=$1&%{QUERY_STRING}

@@ -2,10 +2,10 @@
 <html>
     <head>
         <title>Mule Uploader</title>
-        <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-        <script src="bootstrap/js/bootstrap.min.js"></script>
-        <script type="text/javascript" src="mule-uploader.js"></script>
+        <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
+        <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+        <script type="text/javascript" id="mule" src="mule-uploader.js"></script>
         <style>
             body {
                 background:
@@ -18,15 +18,10 @@
                 width: 100%;
                 text-align: center;
             }
-            .upload-progress {
-                width: 596px;
+            .progress {
+                width: 586px;
                 height: 25px;
-                background-color: white;
                 margin: 10px 2px;
-            }
-            .upload-progress .chunk {
-                background-color: navy;
-                display: inline-block;
             }
             h1 {
                 font-family: "Carme";
@@ -72,18 +67,6 @@
                     },
                     on_select: function(fileObj) {
                         $('#log').prepend("File selected\n");
-
-                        var size = fileObj.size;
-                        var num_chunks = Math.ceil(size / (6 * 1024 * 1024));
-                        var chunk_width = $(".upload-progress").width() / num_chunks;
-                        for(var i=0; i < num_chunks; i++) {
-                            var chunk = $("<div class='chunk'>");
-                            chunk.css({
-                                'width': chunk_width + 'px',
-                                'height': "0%",
-                            });
-                            $(".upload-progress").append(chunk);
-                        }
                         $('.upload-progress').css('width', null);
                     },
                     on_start: function(fileObj) {
@@ -107,14 +90,9 @@
                                 log += "; speed: " + format_size(speed) + "/s";
                             }
                             $('#log').prepend(log + "\n");
+
+                            $('.progress .progress-bar').css('width', (bytes_uploaded / bytes_total * 100) + "%").text(parseInt(bytes_uploaded / bytes_total * 100) + "%");
                         }
-                    },
-                    on_chunk_progress: function(chunk, progress, total) {
-                        var height = $('.upload-progress').height();
-                        $($('.upload-progress .chunk').get(chunk)).css({
-                            'height': Math.ceil((progress / total) * height) + "px",
-                            'margin-top': Math.floor(((total - progress) / total) * height) + "px"
-                        });
                     },
                     on_init: function() {
                         $('#log').prepend("Uploader initialized\n");
@@ -123,6 +101,7 @@
                         var url = "http://{{ bucket }}.s3.amazonaws.com/" + this.settings.key;
                         $('#log').prepend("Upload complete!\n");
                         $('#log').prepend("The file url is " + url + ".\n");
+                        $('.progress').removeClass('active');
                     },
                     on_chunk_uploaded: function() {
                         $('#log').prepend("Chunk finished uploading\n");
@@ -135,7 +114,7 @@
     </head>
     <body>
         <div class="container">
-            <div class="hero-unit">
+            <div class="jumbotron">
                 <h1>Mule Uploader</h1>
                 <p>
                     <em>Mule Uploader</em> gets your file from your computer to <a href="http://aws.amazon.com/s3/">Amazon S3</a>, no matter what.
@@ -146,18 +125,21 @@
                     Why use this? Because having a 3GB file interrupt at <em>87%</em> isn't pretty, not for you and especially not
                     for your users.
                 </p>
-                <span id="explanation">
+                <p id="explanation">
                     Go ahead, select a file. It will start uploading automatically.
-                </span>
+                </p>
                 <br/>
                 <input type="file" id="file" />
-                <div class="upload-progress">
+                <div class="progress progress-striped active">
+                    <div class="progress-bar"  role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0">
+                        
+                    </div>
                 </div>
                 <div style="clear: both"></div>
-                <textarea id="log" rows="10"></textarea>
+                <textarea id="log" rows="10" class="form-control"></textarea>
+                <br/>
                 <p>
-                    <b>New feature!</b> &ndash; it now uses four parallel XHR
-                    requests, so this means a huge improvement in upload speed!
+                    <b>New feature!</b> &ndash; we've upgraded to <a href="http://docs.aws.amazon.com/general/latest/gr/signature-version-4.html">Amazon Signature V4</a>. This release is still <i>experimental</i>, so if you notice a bug please report it to me and / or add a pull request. There is also a new dependency on Web Workers. <a href="https://github.com/cinely/mule-uploader/tree/fa86fb3ef56b23e240975b19fac66fe138a5afb4">The old uploader version</a> will work for all Amazon regions added prior to Jan 30 2014, as per Amazon's documentation. Also, the backend is much simpler, needing only 2 endpoints instead of 6.
                 </p>
                 <p>
                     For more information, visit <a href="https://github.com/cinely/mule-uploader#mule-upload">the GitHub page</a>.
