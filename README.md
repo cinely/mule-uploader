@@ -11,13 +11,20 @@ Mule-upload
 * HTML5 - uses the `File`, `FileList`, `FileReader`, `Worker` and `Blob` objects
 * Speed - it uses multiple workers for (potentially) four time increase in upload speed. E.g. on my computer I got 2.5-3 MB/s vs. < 1MB/s using only one worker. There is a tradeoff between upload speed and CPU consumption though.
 
+#### What people think of it:
+
+> We use Mule Uploader to archive audio in our Rails/AngularJS application www.popuparchive.org. I tried many projects that integrate with S3 in various ways before using this. By using the multipart upload API, multiple threads, and resumable uploads, it met our essential needs for handling large media files, and without requiring a specific UI or DOM elements.  It also came with no dependencies on jQuery or other libraries, making it easy to add to our AngularJS front-end. 
+>
+> -- Andrew Kuklewicz, Tech Director prx.org, Lead Developer www.popuparchive.org.
+
+
+#### Set up:
+
 In order to use this library, you need the following:
 
 * an Amazon S3 bucket where the files will get uploaded
 * CORS settings allowing REST operations from your domain
 * a backend that generates signatures, and optionally keeps track of uploaded chunks (for smart resume, e.g. after you refresh your browser)
-
-#### Set up:
 
 0. The `<script>` element _must_ have `id="mule"`, like this: `<script type="text/javascript" id="mule" src="mule-uploader.js"></script>`. This is needed for Web Workers.
 1. You need to create an Amazon S3 bucket for uploads
