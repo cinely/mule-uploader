@@ -126,43 +126,41 @@ def signing_key():
     return json.dumps(data)
 
 
-@app.route("/upload-backend/<action>/")
-def upload_action(action):
+@app.route("/upload-backend/chunk_loaded/")
+def upload_action():
     key = request.args.get('key')
     upload_id = request.args.get('upload_id')
-    chunk = request.args.get('chunk')
 
-    if action == 'chunk_loaded':
-        filename = request.args['filename']
-        filesize = request.args['filesize']
-        last_modified = request.args['last_modified']
-        chunk = int(request.args['chunk'])
+    filename = request.args['filename']
+    filesize = request.args['filesize']
+    last_modified = request.args['last_modified']
+    chunk = int(request.args['chunk'])
 
-        if filesize > CHUNK_SIZE:
-            try:
-                u = db.query(Upload).filter(
-                    Upload.filename == filename,
-                    Upload.filesize == filesize,
-                    Upload.last_modified == last_modified
-                ).first()
-                assert u
+    if filesize > CHUNK_SIZE:
+        try:
+            u = db.query(Upload).filter(
+                Upload.filename == filename,
+                Upload.filesize == filesize,
+                Upload.last_modified == last_modified
+            ).first()
+            assert u
 
-                chunks = set(map(int, u.chunks_uploaded.split(',')))
-                chunks.add(chunk)
-                u.chunks_uploaded = ','.join(map(str, chunks))
-                db.commit()
+            chunks = set(map(int, u.chunks_uploaded.split(',')))
+            chunks.add(chunk)
+            u.chunks_uploaded = ','.join(map(str, chunks))
+            db.commit()
 
-            except AssertionError:
-                u = Upload(
-                    filename=filename,
-                    filesize=filesize,
-                    last_modified=last_modified,
-                    chunks_uploaded=str(chunk),
-                    key=key,
-                    upload_id=upload_id,
-                )
-                db.add(u)
-                db.commit()
+        except AssertionError:
+            u = Upload(
+                filename=filename,
+                filesize=filesize,
+                last_modified=last_modified,
+                chunks_uploaded=str(chunk),
+                key=key,
+                upload_id=upload_id,
+            )
+            db.add(u)
+            db.commit()
 
     return ''
 

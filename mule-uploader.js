@@ -50,9 +50,7 @@
         return new Worker(script_path);
     };
 
-    if(is_master) {
-        worker = spawn_worker();
-    } else {
+    if(!is_master) {
         self.addEventListener("message", function(e) {
             utils.hash(e.data, function(hash) {
                 self.postMessage(hash);
@@ -94,21 +92,23 @@
 
         // set the "timeout" callback if given
         if(args.timeout_callback && typeof args.timeout_callback == 'function') {
-            xhr.addEventListener('timeout', timeout_callback);
+            xhr.addEventListener('timeout', args.timeout_callback);
         }
 
         // adding extra params as needed
         var url = args.url;
         if(args.extra_params) {
-            for(param_name in args.extra_params) {
-                if(url.indexOf('?') !== -1) {
-                    url += "&";
-                } else {
-                    url += "?";
-                }
+            for(var param_name in args.extra_params) {
+                if(args.extra_params.hasOwnProperty(param_name)) {
+                    if(url.indexOf('?') !== -1) {
+                        url += "&";
+                    } else {
+                        url += "?";
+                    }
 
-                url += encodeURIComponent(param_name) + "=";
-                url += encodeURIComponent(args.extra_params[param_name]);
+                    url += encodeURIComponent(param_name) + "=";
+                    url += encodeURIComponent(args.extra_params[param_name]);
+                }
             }
         }
 
@@ -117,7 +117,9 @@
 
         // set the headers
         for(var header in args.headers) {
-            xhr.setRequestHeader(header, args.headers[header]);
+            if(args.headers.hasOwnProperty(header)) {
+                xhr.setRequestHeader(header, args.headers[header]);
+            }
         }
 
         // send the ajax call
@@ -187,7 +189,7 @@
             settings.max_size = settings.max_size || 5 * GB; // 5GB
 
             // the number of parallel upload xhr's
-            settings.num_workers = settings.num_workers || 2;
+            settings.num_workers = settings.num_workers || 4;
 
             // the S3 object key; I recommend to generate this dynamically (e.g.
             // a random string) to avoid unwanted overwrites.
@@ -254,6 +256,7 @@
                     // so we get the first file
                     var file = e.target.files[0];
                     u.upload_file(file, force);
+                    return true;
                 };
             }
 
@@ -288,9 +291,12 @@
             u.file.lastModifiedDate = u.file.lastModifiedDate || new Date(0);
 
             if(u.file.size > u.settings.max_size) {
-                alert("The maximum allowed file size is " + (u.settings.max_size / GB)
-                      + "GB. Please select another file.");
-                return;
+                alert(
+                    ["The maximum allowed file size is ",
+                    (u.settings.max_size / GB),
+                    "GB. Please select another file."].join('')
+                );
+                return false;
             }
 
             // check for accepted extensions, if applicable
@@ -299,7 +305,7 @@
                 var file_extension = file.name.split('.').pop();
 
                 // split the given extensions into an array
-                extensions_array = u.settings.accepted_extensions.split(',');
+                var extensions_array = u.settings.accepted_extensions.split(',');
 
                 // and match the extension against the given extension list
                 var file_accepted = false;
@@ -312,9 +318,12 @@
 
                 // if the file is not accepted, notify the user and return
                 if(!file_accepted) {
-                    alert("This file format is not accepted. Please use a file with an extension like '"
-                        + u.settings.accepted_extensions);
-                    return;
+                    alert(
+                        ["This file format is not accepted. ",
+                        "Please use a file with an extension like ",
+                        u.settings.accepted_extensions].join('')
+                    );
+                    return false;
                 }
             }
 
@@ -323,7 +332,7 @@
             var args = {
                 filename: file.name,
                 filesize: file.size,
-                last_modified: file.lastModifiedDate.valueOf(),
+                last_modified: file.lastModifiedDate.valueOf()
             };
             if(force) {
                 args.force = true;
@@ -334,7 +343,7 @@
             // is already uploading. It also returns a
             // backup_key in case that file upload already completed.
             // The signing key is valid for 7 days
-            new XHR({
+            XHR({
                 url: u.settings.ajax_base + "/signing_key/",
                 extra_params: args,
                 load_callback: function(e) {
@@ -344,6 +353,7 @@
                     u.upload_id = json.upload_id;
                     u.chunks = json.chunks;
                     u.settings.key = json.key || u.settings.key;
+                    u.settings.backup_key = u.settings.key;
 
                     if(!u.upload_id) {
                         AmazonXHR.init(json, u.settings.key, file, function(e) {
@@ -352,7 +362,7 @@
                             // get the given upload id
                             u.upload_id = xml.getElementsByTagName('UploadId')[0].textContent;
 
-                            u.load_file(file);
+                            u.load_file();
                         });
                     } else {
                         // resume a previus upload
@@ -365,7 +375,7 @@
                                     u.set_chunk_finished(chunk);
                                     u.set_chunk_uploading(chunk, false);
                                 }
-                                u.load_file(file);
+                                u.load_file();
                             }, function() {
                                 // if it fails, re-initiate the upload, and force
                                 // it to start a new upload
@@ -381,7 +391,7 @@
                             });
                         } else {
                             // force-start the upload
-                            u.load_file(file);
+                            u.load_file();
                         }
                     }
                 }
@@ -389,7 +399,7 @@
         };
 
         // this initiates the file upload
-        Uploader.prototype.load_file = function(file) {
+        Uploader.prototype.load_file = function() {
             var u = this;
 
             // we can't start the upload if we are waiting for user input
@@ -568,7 +578,6 @@
                     u.settings.on_complete.call(u);
                 }, function() {
                     // we have a genuine error
-
                     log("Error: ");
                     log(error_arguments);
 
@@ -607,31 +616,30 @@
                 });
             };
 
-            var xhr = AmazonXHR.upload_chunk(u.auth, u.settings.key, u.upload_id, chunk, u.file.slice(start, end), {
+            AmazonXHR.upload_chunk(u.auth, u.settings.key, u.upload_id, chunk, u.file.slice(start, end), {
                 progress_callback: progress_handler,
                 state_change_callback: handler,
                 error_callback: error_handler,
                 timeout_callback: error_handler
-            });
+            }, function(xhr) {
+                u._chunk_xhr = u._chunk_xhr || [];
+                u._chunk_xhr.push(xhr);
 
-            // window.xhrs = window.xhrs || [];
-            // window.xhrs.push(xhr);
+                console.log(xhr);
 
-            u._chunk_xhr = u._chunk_xhr || [];
-            u._chunk_xhr.push(xhr);
-
-
-            // the watcher interval; it cancels the xhr if it times out
-            u._intervals[chunk] = setInterval(function() {
-                if(last_progress_time && (new Date() - last_progress_time) > 15000) { // 15s
-                    log("Chunk Failed; retry");
-                    clearInterval(u._intervals[chunk]);
-                    if(u.get_state() == "processing") {
-                        xhr.abort();
-                        error_handler.call(xhr);
+                // the watcher interval; it cancels the xhr if it times out
+                u._intervals[chunk] = setInterval(function() {
+                    if(last_progress_time && (new Date() - last_progress_time) > 15000) { // 15s
+                        log("Chunk Failed; retry");
+                        clearInterval(u._intervals[chunk]);
+                        if(u.get_state() == "processing") {
+                            xhr.abort();
+                            error_handler.call(xhr);
+                            u._chunk_xhr[u._chunk_xhr.indexOf(xhr)] = null;
+                        }
                     }
-                }
-            }, 4000); // every 4s
+                }, 4000); // every 4s
+            });
         };
 
         // initiates the upload finish sequence
@@ -656,19 +664,17 @@
                     u.set_state("finished");
                     u.settings.on_progress.call(u, u.file.size, u.file.size); // it's 100% done
 
-                    u.notify_upload_finished();
-
                     // trigger the complete event callback
                     u.settings.on_complete.call(u);
                 } else if(e.target.status == 400 &&
                     e.target.responseText.indexOf("EntityTooSmall") !== -1) {
                     // an "EntityTooSmall" error means that we missed a chunk
-                    // u.list_parts(function(parts) {
-                    //     u.update_chunks(parts);
-                    //     var next_chunk = u.get_next_chunk();
-                    //     u.set_state("processing");
-                    //     u.upload_chunk(next_chunk);
-                    // });
+                    u.list_parts(function(parts) {
+                        u.update_chunks(parts);
+                        var next_chunk = u.get_next_chunk();
+                        u.set_state("processing");
+                        u.upload_chunk(next_chunk);
+                    });
                 } else if(e.target.status == 404) {
                     // 404 = NoSuchUpload = check if already finished
                     // if so, start a new upload
@@ -719,28 +725,17 @@
             }
             var key = u.settings.key;
             var upload_id = u.upload_id;
-            var url = u.settings.ajax_base + '/chunk_loaded/?key=' + key + "&chunk=" + (chunk + 1)
-                + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
-                + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
+            var url = u.settings.ajax_base + '/chunk_loaded/';
             XHR({
                 url: url,
-                extra_params: u.settings.extra_params
-            });
-        };
-
-        Uploader.prototype.notify_upload_finished = function(callback) {
-            var u = this;
-            if(u.get_state() != "finished") {
-                return;
-            }
-            var key = u.settings.key;
-            var upload_id = u.upload_id;
-            var url = u.settings.ajax_base + '/upload_finished/?key=' + key
-                + "&upload_id=" + upload_id + "&filename=" + escape(u.file.name)
-                + "&filesize=" + u.file.size + "&last_modified=" + u.file.lastModifiedDate.valueOf();
-            XHR({
-                url: url,
-                extra_params: u.settings.extra_params
+                extra_params: {
+                    chunk: chunk,
+                    key: key,
+                    upload_id: upload_id,
+                    filename: u.file.name,
+                    filesize: u.file.size,
+                    last_modified: u.file.lastModifiedDate.valueOf()
+                }
             });
         };
 
@@ -772,7 +767,7 @@
 
             XHR({
                 url: u.settings.host + path,
-                method: "HEAD",
+                method: method,
                 load_callback: inner_handler,
                 error_callback: error_callback
             });
@@ -788,7 +783,9 @@
             }
             u._intervals = u._intervals || {};
             for(var x in u._intervals) {
-                clearInterval(u._intervals[x]);
+                if(u._intervals.hasOwnProperty(x)) {
+                    clearInterval(u._intervals[x]);
+                }
             }
             callback = callback || function() {};
             u.set_state("canceled");
@@ -815,13 +812,14 @@
             u._uploading_chunks = [];
             u._loaded_chunks = [];
 
-            for(var i=0; i < parts.length; i++) {
+            var i;
+            for(i=0; i < parts.length; i++) {
                 var part_number = parseInt(parts[i][0], 10);
                 u.add_loaded_chunk(part_number - 1);
                 u.set_chunk_finished(part_number - 1);
                 loaded.push(part_number - 1);
             }
-            for(var i=0; i < num_chunks; i++) {
+            for(i=0; i < num_chunks; i++) {
                 if(loaded.indexOf(i) === -1) {
                     log("Chunk not uploaded: ", i);
                     u.set_progress(i, 0);
@@ -841,12 +839,12 @@
 
         // sets the uploader's state
         Uploader.prototype.set_state = function(state) {
-            return this._state = state;
+            this._state = state;
+            return state;
         };
 
         // set a chunk's progress
         Uploader.prototype.set_progress = function(chunk, loaded) {
-            var num_chunks = Math.ceil(this.file.size / this.settings.chunk_size);
             this.log_status();
             this._progress = this._progress || {};
             this._total_progress = (this._total_progress || 0 ) + loaded - (this._progress[chunk] || 0);
@@ -949,7 +947,7 @@
 
         Uploader.prototype.is_last_chunk = function(chunk) {
             return Math.ceil(this.file.size / this.settings.chunk_size) - 1 == chunk;
-        }
+        };
 
         Uploader.prototype.get_chunk_size = function(chunk) {
             if(this.is_last_chunk(chunk)) {
@@ -957,20 +955,20 @@
             } else {
                 return this.settings.chunk_size;
             }
-        }
+        };
 
         Uploader.prototype.log_status = function() {
             // log(this.get_total_progress() / this.file.size * 100);
-        }
+        };
 
-        Uploader.prototype.on_chunk_progress = function(f) { u.settings.on_chunk_progress = f; };
-        Uploader.prototype.on_progress = function(f) { u.settings.on_progress = f; };
-        Uploader.prototype.on_select = function(f) { u.settings.on_select = f; };
-        Uploader.prototype.on_error = function(f) { u.settings.on_error = f; };
-        Uploader.prototype.on_complete = function(f) { u.settings.on_complete = f; };
-        Uploader.prototype.on_init = function(f) { u.settings.on_init = f; };
-        Uploader.prototype.on_start = function(f) { u.settings.on_start = f; };
-        Uploader.prototype.on_chunk_uploaded = function(f) { u.settings.on_chunk_uploaded = f; };
+        Uploader.prototype.on_chunk_progress = function(f) { this.settings.on_chunk_progress = f; };
+        Uploader.prototype.on_progress = function(f) { this.settings.on_progress = f; };
+        Uploader.prototype.on_select = function(f) { this.settings.on_select = f; };
+        Uploader.prototype.on_error = function(f) { this.settings.on_error = f; };
+        Uploader.prototype.on_complete = function(f) { this.settings.on_complete = f; };
+        Uploader.prototype.on_init = function(f) { this.settings.on_init = f; };
+        Uploader.prototype.on_start = function(f) { this.settings.on_start = f; };
+        Uploader.prototype.on_chunk_uploaded = function(f) { this.settings.on_chunk_uploaded = f; };
 
         return new Uploader(settings);
     };
@@ -982,7 +980,6 @@
     };
     AmazonXHR.finish = function(auth, file, key, upload_id, parts, chunk_size, callback) {
         var querystring = {"uploadId": upload_id};
-        var num_chunks = Math.ceil(file.size / chunk_size);
 
         // compose the CompleteMultipartUpload request for putting
         // the chunks together
@@ -995,8 +992,6 @@
         }
         data += "</CompleteMultipartUpload>";
 
-        var payload = data;
-
         // firefox requires a small hack
         if(navigator.userAgent.indexOf("Firefox") !== -1) {
             data = new Blob([data]);
@@ -1006,14 +1001,12 @@
             auth: auth,
             key: key,
             method: "POST",
-            querystring: {
-                "uploadId": upload_id
-            },
+            querystring: querystring,
             headers: {},
             payload: data,
             load_callback: callback
         }).send();
-    }
+    };
     AmazonXHR.list = function(auth, file, key, upload_id, chunk_size, callback, error_callback, marker) {
         var querystring = {"uploadId": upload_id};
         if(marker) {
@@ -1072,9 +1065,9 @@
                 }
             }
         }).send();
-    }
+    };
 
-    AmazonXHR.upload_chunk = function(auth, key, upload_id, chunk_num, chunk, callbacks) {
+    AmazonXHR.upload_chunk = function(auth, key, upload_id, chunk_num, chunk, callbacks, xhr_callback) {
         var callback, error_callback, progress_callback, readystate_callback;
         if(callbacks instanceof Object) {
             callback = callbacks.load_callback;
@@ -1088,22 +1081,19 @@
             partNumber: chunk_num + 1,
             uploadId: upload_id
         };
-        return new AmazonXHR({
+        return (new AmazonXHR({
             auth: auth,
             key: key,
             method: "PUT",
-            querystring: {
-                "partNumber": chunk_num + 1,
-                "uploadId": upload_id
-            },
+            querystring: querystring,
             headers: {},
             payload: chunk,
             load_callback: callback,
             error_callback: error_callback,
             progress_callback: progress_callback,
             state_change_callback: readystate_callback
-        }).send();
-    }
+        })).send(xhr_callback);
+    };
     AmazonXHR.init = function(auth, key, file, callback) {
         return new AmazonXHR({
             auth: auth,
@@ -1119,21 +1109,23 @@
             payload: "",
             load_callback: callback
         }).send();
-    }
+    };
     AmazonXHR.prototype = {
-        send: function() {
+        send: function(callback) {
             var self = this;
-            this.request_date = new Date;
+            this.request_date = new Date();
             utils.hash(this.settings.payload, function(hash) {
                 self.payload_hash = hash;
                 var url = "http://" + self.settings.auth.bucket + ".s3.amazonaws.com/" + self.settings.key;
                 var first = true;
                 for(var key in self.settings.querystring) {
-                    if(first) {
-                        url += "?";
+                    if(self.settings.querystring.hasOwnProperty(key)) {
+                        if(first) {
+                            url += "?";
+                        }
+                        first = false;
+                        url += key + "=" + self.settings.querystring[key] + "&";
                     }
-                    first = false;
-                    url += key + "=" + self.settings.querystring[key] + "&";
                 }
                 url = url.slice(0, -1);  // remove extra ampersand
 
@@ -1144,7 +1136,7 @@
                 self.headers['Authorization'] = self.get_authorization_header();
                 delete self.headers['host'];  // keep this header only for hashing
 
-                return XHR({
+                var xhr = XHR({
                     url: url,
                     method: self.settings.method,
                     headers: self.headers,
@@ -1156,6 +1148,9 @@
                     error_callback: self.settings.error_callback,
                     timeout_callback: self.settings.timeout_callback
                 });
+                if(callback) {
+                    callback(xhr);
+                }
             });
         },
         get_authorization_header: function() {
@@ -1166,11 +1161,11 @@
                 throw "Invalid date given.";
             }
             var header = "";
-            var date_string = (
-                this.settings.auth.date.getFullYear()
-                + utils.zfill(this.settings.auth.date.getMonth() + 1, 2)
-                + utils.zfill(this.settings.auth.date.getDate(), 2)
-            );
+            var date_string = [
+                this.settings.auth.date.getFullYear(),
+                utils.zfill(this.settings.auth.date.getMonth() + 1, 2),
+                utils.zfill(this.settings.auth.date.getDate(), 2)
+            ].join('');
 
             var header_keys = utils.get_sorted_keys(this.headers);
 
@@ -1205,24 +1200,25 @@
 
             // querystring
             var querystring_keys = utils.get_sorted_keys(this.settings.querystring);
-            for(var i=0; i<querystring_keys.length; i++) {
-                var key = querystring_keys[i];
-                var value = this.settings.querystring[key];
+            var key, value, i;
+            for(i=0; i<querystring_keys.length; i++) {
+                key = querystring_keys[i];
+                value = this.settings.querystring[key];
                 request += utils.uriencode(key) + "=" + utils.uriencode(value) + "&";
             }
             request = request.slice(0, -1) + "\n";  // remove extra ampersand
 
             // headers
             var header_keys = utils.get_sorted_keys(this.headers);
-            for(var i=0; i<header_keys.length; i++) {
-                var key = header_keys[i];
-                var value = this.headers[key];
+            for(i=0; i<header_keys.length; i++) {
+                key = header_keys[i];
+                value = this.headers[key];
                 request += key.toLowerCase() + ":" + value.trim() + "\n";
             }
             request += "\n";
 
             // signed headers
-            for(var i=0; i<header_keys.length; i++) {
+            for(i=0; i<header_keys.length; i++) {
                 request += header_keys[i].toLowerCase() + ";";
             }
 
@@ -1237,12 +1233,12 @@
             var to_sign = "";
             to_sign += "AWS4-HMAC-SHA256\n";
             to_sign += time.toGMTString() + "\n";
-            to_sign += (
-                time.getFullYear() 
-                + utils.zfill(time.getMonth() + 1, 2)
-                + utils.zfill(time.getDate(), 2)
-                + "/" + this.settings.auth.region + "/s3/aws4_request\n"
-            );
+            to_sign += [
+                time.getFullYear(),
+                utils.zfill(time.getMonth() + 1, 2),
+                utils.zfill(time.getDate(), 2),
+                "/" + this.settings.auth.region + "/s3/aws4_request\n"
+            ].join('');
 
             to_sign += CryptoJS.SHA256(canonical_request).toString();
 
@@ -1252,13 +1248,13 @@
             if(!this.settings.auth.signature) {
                 throw "No signature provided.";
             }
-            res = CryptoJS.HmacSHA256(
+            var res = CryptoJS.HmacSHA256(
                 string_to_sign, 
                 CryptoJS.enc.Hex.parse(this.settings.auth.signature)
             ).toString();
             return res;
         }
-    }
+    };
 
     var utils = {
         uriencode: function(string) {
@@ -1274,8 +1270,10 @@
         },
         get_sorted_keys: function(obj) {
             var keys = [];
-            for(key in obj) {
-                keys.push(key);
+            for(var key in obj) {
+                if(obj.hasOwnProperty(key)) {
+                    keys.push(key);
+                }
             }
             return keys.sort(function (a, b) {
                 return a.toLowerCase().localeCompare(b.toLowerCase());
@@ -1290,9 +1288,8 @@
                 loader.addEventListener("loadend", function() {
                     if(is_master && worker) {
                         var handler = function(e) {
-                            console.log("Hash for ", payload, " is ", e.data);
                             callback(e.data);
-                        }
+                        };
                         var worker = spawn_worker();
                         worker.addEventListener("message", handler);
                         worker.postMessage(loader.result);
@@ -1312,9 +1309,6 @@
                 callback(payload_hash);
             }
         }
-    }
-
-    
-
+    };
 
 })(this);

@@ -19,9 +19,15 @@
                 text-align: center;
             }
             .progress {
-                width: 586px;
+                width: 585px;
                 height: 25px;
                 margin: 10px 2px;
+            }
+            .progress .progress-bar {
+                padding-top: 2px;
+                color: white;
+                font-weight: bold;
+                overflow: hidden;
             }
             h1 {
                 font-family: "Carme";
@@ -91,7 +97,8 @@
                             }
                             $('#log').prepend(log + "\n");
 
-                            $('.progress .progress-bar').css('width', (bytes_uploaded / bytes_total * 100) + "%").text(parseInt(bytes_uploaded / bytes_total * 100) + "%");
+                            var text = parseInt(bytes_uploaded / bytes_total * 100) + "%";
+                            $('.progress .progress-bar').css('width', (bytes_uploaded / bytes_total * 100) + "%").text(text);
                         }
                     },
                     on_init: function() {
@@ -131,8 +138,7 @@
                 <br/>
                 <input type="file" id="file" />
                 <div class="progress progress-striped active">
-                    <div class="progress-bar"  role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0">
-                        
+                    <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0">
                     </div>
                 </div>
                 <div style="clear: both"></div>
