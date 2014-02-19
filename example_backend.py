@@ -99,6 +99,7 @@ def signing_key():
         "region": AWS_REGION,
         "bucket": BUCKET,
         "backup_key": str(random.randint(1, 1000000)),
+        "content_type": MIME_TYPE,
     }
 
     try:

@@ -1104,7 +1104,8 @@
             },
             headers: {
                 "x-amz-acl": "public-read",
-                "Content-Disposition": "attachment; filename=" + file.name
+                "Content-Disposition": "attachment; filename=" + file.name,
+                "Content-Type": auth.content_type || "application/octet-stream"
             },
             payload: "",
             load_callback: callback
