@@ -329,11 +329,13 @@
 
             // initialize the file upload
             u.settings.on_select.call(u, file);
-            var args = {
-                filename: file.name,
-                filesize: file.size,
-                last_modified: file.lastModifiedDate.valueOf()
-            };
+            
+            // incorporated u.settings.extra_params in query_string assembly
+            var args = u.settings.extra_params || {};
+            args.filename = file.name;
+            args.filesize = file.size;
+            args.last_lodified = file.lastModifiedDate.valueOf();
+            
             if(force) {
                 args.force = true;
             }
@@ -726,17 +728,19 @@
             var key = u.settings.key;
             var upload_id = u.upload_id;
             var url = u.settings.ajax_base + '/chunk_loaded/';
-            XHR({
-                url: url,
-                extra_params: {
-                    chunk: chunk,
-                    key: key,
-                    upload_id: upload_id,
-                    filename: u.file.name,
-                    filesize: u.file.size,
-                    last_modified: u.file.lastModifiedDate.valueOf()
-                }
-            });
+            
+            //incorporated u.settings.extra_params in query_string assembly
+            var args = u.settings.extra_params || {};
+
+            args.chunk = chunk;
+            args.key = key;
+            args.upload_id = upload_id;
+            args.filename = u.file.name;
+            args.filesize = u.file.size;
+            args.last_modified = u.file.lastModifiedDate.valueOf();
+
+            XHR({url:url,extra_params:args});
+
         };
 
         // check whether the file is already uploaded
