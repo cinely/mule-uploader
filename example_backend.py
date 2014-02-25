@@ -63,21 +63,20 @@ def teardown_db(exception=None):
 
 ## Helper Functions
 
-def sign(key, msg):
+def _sign(key, msg):
     return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
 
-def getSignatureKey(key, dateStamp, regionName, serviceName):
-    print key, dateStamp, regionName, serviceName
-    kDate = sign(("AWS4" + key).encode("utf-8"), dateStamp)
-    kRegion = sign(kDate, regionName)
-    kService = sign(kRegion, serviceName)
-    kSigning = sign(kService, "aws4_request")
-    return kSigning
+def _get_signature_key(key, date_stamp, region_name, service_name):
+    k_date = _sign(("AWS4" + key).encode("utf-8"), date_stamp)
+    k_region = _sign(k_date, region_name)
+    k_service = _sign(k_region, service_name)
+    k_signing = _sign(k_service, "aws4_request")
+    return k_signing
 
 
-def _signing_key(date):
-    return getSignatureKey(
+def get_signature(date):
+    return _get_signature_key(
         AWS_SECRET, date.strftime("%Y%m%d"), AWS_REGION, "s3").encode('hex')
 
 ## Actual backend
@@ -86,7 +85,7 @@ def _signing_key(date):
 @app.route("/upload-backend/signing_key/")
 def signing_key():
     date = datetime.utcnow()
-    key = _signing_key(date)
+    key = get_signature(date)
 
     filename = request.args['filename']
     filesize = request.args['filesize']
