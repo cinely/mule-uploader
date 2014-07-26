@@ -652,7 +652,7 @@
 
             u.settings.on_progress.call(u, u.file.size, u.file.size); // 100% done.
 
-            
+
             var handler = function(e) {
                 // i.e. if it's a 2XX response
                 if(e.target.status / 100 == 2) {
@@ -665,7 +665,7 @@
                 } else if(e.target.status == 400 &&
                     e.target.responseText.indexOf("EntityTooSmall") !== -1) {
                     // an "EntityTooSmall" error means that we missed a chunk
-                    u.list_parts(function(parts) {
+                    AmazonXHR.list(u.auth, u.file, u.settings.key, u.upload_id, u.settings.chunk_size, function(parts) {
                         u.update_chunks(parts);
                         var next_chunk = u.get_next_chunk();
                         u.set_state("processing");
@@ -1246,7 +1246,7 @@
                 throw "No signature provided.";
             }
             var res = CryptoJS.HmacSHA256(
-                string_to_sign, 
+                string_to_sign,
                 CryptoJS.enc.Hex.parse(this.settings.auth.signature)
             ).toString();
             return res;
