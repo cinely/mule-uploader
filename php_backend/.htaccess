@@ -1,5 +1,5 @@
-SetEnv AWS_ACCESS_KEY AKIAIG4BNNHVE5AB42NA
-SetEnv AWS_SECRET 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
+SetEnv AWS_ACCESS_KEY [aws_access_key]
+SetEnv AWS_SECRET [aws_secret]
 SetEnv AWS_REGION us-east-1
 SetEnv BUCKET mule-uploader-demo
 SetEnv MIME_TYPE application/octet-stream
