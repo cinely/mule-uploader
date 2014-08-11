@@ -1159,9 +1159,9 @@
             }
             var header = "";
             var date_string = [
-                this.settings.auth.date.getFullYear(),
-                utils.zfill(this.settings.auth.date.getMonth() + 1, 2),
-                utils.zfill(this.settings.auth.date.getDate(), 2)
+                this.settings.auth.date.getUTCFullYear(),
+                utils.zfill(this.settings.auth.date.getUTCMonth() + 1, 2),
+                utils.zfill(this.settings.auth.date.getUTCDate(), 2)
             ].join('');
 
             var header_keys = utils.get_sorted_keys(this.headers);
@@ -1231,9 +1231,9 @@
             to_sign += "AWS4-HMAC-SHA256\n";
             to_sign += time.toGMTString() + "\n";
             to_sign += [
-                time.getFullYear(),
-                utils.zfill(time.getMonth() + 1, 2),
-                utils.zfill(time.getDate(), 2),
+                time.getUTCFullYear(),
+                utils.zfill(time.getUTCMonth() + 1, 2),
+                utils.zfill(time.getUTCDate(), 2),
                 "/" + this.settings.auth.region + "/s3/aws4_request\n"
             ].join('');
 
@@ -1245,6 +1245,7 @@
             if(!this.settings.auth.signature) {
                 throw "No signature provided.";
             }
+
             var res = CryptoJS.HmacSHA256(
                 string_to_sign,
                 CryptoJS.enc.Hex.parse(this.settings.auth.signature)
