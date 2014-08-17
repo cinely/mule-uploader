@@ -24,13 +24,6 @@
     (function(h){for(var s=CryptoJS,f=s.lib,t=f.WordArray,g=f.Hasher,f=s.algo,j=[],q=[],v=function(a){return 4294967296*(a-(a|0))|0},u=2,k=0;64>k;){var l;a:{l=u;for(var x=h.sqrt(l),w=2;w<=x;w++)if(!(l%w)){l=!1;break a}l=!0}l&&(8>k&&(j[k]=v(h.pow(u,0.5))),q[k]=v(h.pow(u,1/3)),k++);u++}var a=[],f=f.SHA256=g.extend({_doReset:function(){this._hash=new t.init(j.slice(0))},_doProcessBlock:function(c,d){for(var b=this._hash.words,e=b[0],f=b[1],m=b[2],h=b[3],p=b[4],j=b[5],k=b[6],l=b[7],n=0;64>n;n++){if(16>n)a[n]=
     c[d+n]|0;else{var r=a[n-15],g=a[n-2];a[n]=((r<<25|r>>>7)^(r<<14|r>>>18)^r>>>3)+a[n-7]+((g<<15|g>>>17)^(g<<13|g>>>19)^g>>>10)+a[n-16]}r=l+((p<<26|p>>>6)^(p<<21|p>>>11)^(p<<7|p>>>25))+(p&j^~p&k)+q[n]+a[n];g=((e<<30|e>>>2)^(e<<19|e>>>13)^(e<<10|e>>>22))+(e&f^e&m^f&m);l=k;k=j;j=p;p=h+r|0;h=m;m=f;f=e;e=r+g|0}b[0]=b[0]+e|0;b[1]=b[1]+f|0;b[2]=b[2]+m|0;b[3]=b[3]+h|0;b[4]=b[4]+p|0;b[5]=b[5]+j|0;b[6]=b[6]+k|0;b[7]=b[7]+l|0},_doFinalize:function(){var a=this._data,d=a.words,b=8*this._nDataBytes,e=8*a.sigBytes;
         d[e>>>5]|=128<<24-e%32;d[(e+64>>>9<<4)+14]=h.floor(b/4294967296);d[(e+64>>>9<<4)+15]=b;a.sigBytes=4*d.length;this._process();return this._hash},clone:function(){var a=g.clone.call(this);a._hash=this._hash.clone();return a}});s.SHA256=g._createHelper(f);s.HmacSHA256=g._createHmacHelper(f)})(Math);
-    var CryptoJS=CryptoJS||function(h,s){var f={},g=f.lib={},q=function(){},m=g.Base={extend:function(a){q.prototype=this;var c=new q;a&&c.mixIn(a);c.hasOwnProperty("init")||(c.init=function(){c.$super.init.apply(this,arguments)});c.init.prototype=c;c.$super=this;return c},create:function(){var a=this.extend();a.init.apply(a,arguments);return a},init:function(){},mixIn:function(a){for(var c in a)a.hasOwnProperty(c)&&(this[c]=a[c]);a.hasOwnProperty("toString")&&(this.toString=a.toString)},clone:function(){return this.init.prototype.extend(this)}},
-    r=g.WordArray=m.extend({init:function(a,c){a=this.words=a||[];this.sigBytes=c!=s?c:4*a.length},toString:function(a){return(a||k).stringify(this)},concat:function(a){var c=this.words,d=a.words,b=this.sigBytes;a=a.sigBytes;this.clamp();if(b%4)for(var e=0;e<a;e++)c[b+e>>>2]|=(d[e>>>2]>>>24-8*(e%4)&255)<<24-8*((b+e)%4);else if(65535<d.length)for(e=0;e<a;e+=4)c[b+e>>>2]=d[e>>>2];else c.push.apply(c,d);this.sigBytes+=a;return this},clamp:function(){var a=this.words,c=this.sigBytes;a[c>>>2]&=4294967295<<
-    32-8*(c%4);a.length=h.ceil(c/4)},clone:function(){var a=m.clone.call(this);a.words=this.words.slice(0);return a},random:function(a){for(var c=[],d=0;d<a;d+=4)c.push(4294967296*h.random()|0);return new r.init(c,a)}}),l=f.enc={},k=l.Hex={stringify:function(a){var c=a.words;a=a.sigBytes;for(var d=[],b=0;b<a;b++){var e=c[b>>>2]>>>24-8*(b%4)&255;d.push((e>>>4).toString(16));d.push((e&15).toString(16))}return d.join("")},parse:function(a){for(var c=a.length,d=[],b=0;b<c;b+=2)d[b>>>3]|=parseInt(a.substr(b,
-    2),16)<<24-4*(b%8);return new r.init(d,c/2)}},n=l.Latin1={stringify:function(a){var c=a.words;a=a.sigBytes;for(var d=[],b=0;b<a;b++)d.push(String.fromCharCode(c[b>>>2]>>>24-8*(b%4)&255));return d.join("")},parse:function(a){for(var c=a.length,d=[],b=0;b<c;b++)d[b>>>2]|=(a.charCodeAt(b)&255)<<24-8*(b%4);return new r.init(d,c)}},j=l.Utf8={stringify:function(a){try{return decodeURIComponent(escape(n.stringify(a)))}catch(c){throw Error("Malformed UTF-8 data");}},parse:function(a){return n.parse(unescape(encodeURIComponent(a)))}},
-    u=g.BufferedBlockAlgorithm=m.extend({reset:function(){this._data=new r.init;this._nDataBytes=0},_append:function(a){"string"==typeof a&&(a=j.parse(a));this._data.concat(a);this._nDataBytes+=a.sigBytes},_process:function(a){var c=this._data,d=c.words,b=c.sigBytes,e=this.blockSize,f=b/(4*e),f=a?h.ceil(f):h.max((f|0)-this._minBufferSize,0);a=f*e;b=h.min(4*a,b);if(a){for(var g=0;g<a;g+=e)this._doProcessBlock(d,g);g=d.splice(0,a);c.sigBytes-=b}return new r.init(g,b)},clone:function(){var a=m.clone.call(this);
-    a._data=this._data.clone();return a},_minBufferSize:0});g.Hasher=u.extend({cfg:m.extend(),init:function(a){this.cfg=this.cfg.extend(a);this.reset()},reset:function(){u.reset.call(this);this._doReset()},update:function(a){this._append(a);this._process();return this},finalize:function(a){a&&this._append(a);return this._doFinalize()},blockSize:16,_createHelper:function(a){return function(c,d){return(new a.init(d)).finalize(c)}},_createHmacHelper:function(a){return function(c,d){return(new t.HMAC.init(a,
-    d)).finalize(c)}}});var t=f.algo={};return f}(Math);
     (function(h){for(var s=CryptoJS,f=s.lib,g=f.WordArray,q=f.Hasher,f=s.algo,m=[],r=[],l=function(a){return 4294967296*(a-(a|0))|0},k=2,n=0;64>n;){var j;a:{j=k;for(var u=h.sqrt(j),t=2;t<=u;t++)if(!(j%t)){j=!1;break a}j=!0}j&&(8>n&&(m[n]=l(h.pow(k,0.5))),r[n]=l(h.pow(k,1/3)),n++);k++}var a=[],f=f.SHA256=q.extend({_doReset:function(){this._hash=new g.init(m.slice(0))},_doProcessBlock:function(c,d){for(var b=this._hash.words,e=b[0],f=b[1],g=b[2],j=b[3],h=b[4],m=b[5],n=b[6],q=b[7],p=0;64>p;p++){if(16>p)a[p]=
     c[d+p]|0;else{var k=a[p-15],l=a[p-2];a[p]=((k<<25|k>>>7)^(k<<14|k>>>18)^k>>>3)+a[p-7]+((l<<15|l>>>17)^(l<<13|l>>>19)^l>>>10)+a[p-16]}k=q+((h<<26|h>>>6)^(h<<21|h>>>11)^(h<<7|h>>>25))+(h&m^~h&n)+r[p]+a[p];l=((e<<30|e>>>2)^(e<<19|e>>>13)^(e<<10|e>>>22))+(e&f^e&g^f&g);q=n;n=m;m=h;h=j+k|0;j=g;g=f;f=e;e=k+l|0}b[0]=b[0]+e|0;b[1]=b[1]+f|0;b[2]=b[2]+g|0;b[3]=b[3]+j|0;b[4]=b[4]+h|0;b[5]=b[5]+m|0;b[6]=b[6]+n|0;b[7]=b[7]+q|0},_doFinalize:function(){var a=this._data,d=a.words,b=8*this._nDataBytes,e=8*a.sigBytes;
     d[e>>>5]|=128<<24-e%32;d[(e+64>>>9<<4)+14]=h.floor(b/4294967296);d[(e+64>>>9<<4)+15]=b;a.sigBytes=4*d.length;this._process();return this._hash},clone:function(){var a=q.clone.call(this);a._hash=this._hash.clone();return a}});s.SHA256=q._createHelper(f);s.HmacSHA256=q._createHmacHelper(f)})(Math);
@@ -38,24 +31,6 @@
     this._hasher;f=g.finalize(f);g.reset();return g.finalize(this._oKey.clone().concat(f))}})})();
     (function(){if(undefined!==typeof ArrayBuffer){var b=CryptoJS.lib.WordArray,e=b.init;(b.init=function(a){a instanceof ArrayBuffer&&(a=new Uint8Array(a));if(a instanceof Int8Array||a instanceof Uint8ClampedArray||a instanceof Int16Array||a instanceof Uint16Array||a instanceof Int32Array||a instanceof Uint32Array||a instanceof Float32Array||a instanceof Float64Array)a=new Uint8Array(a.buffer,a.byteOffset,a.byteLength);if(a instanceof Uint8Array){for(var b=a.byteLength,d=[],c=0;c<b;c++)d[c>>>2]|=a[c]<<
     24-8*(c%4);e.call(this,d,b)}else e.apply(this,arguments)}).prototype=b}})();
-
-    // web worker
-    var is_worker = !namespace.document;
-    var is_master = !is_worker;
-
-    var spawn_worker = is_worker ? null : function() {
-        var script_path = namespace.document.getElementById("mule").src;
-        return new Worker(script_path);
-    };
-
-    if(!is_master) {
-        self.addEventListener("message", function(e) {
-            utils.hash(e.data, function(hash) {
-                self.postMessage(hash);
-                self.close();
-            });
-        });
-    }
 
     // AJAX helper. It takes an object that contains load_callback, error_callback,
     // url, method, headers, state_change_callback, progress_callback
@@ -970,7 +945,6 @@
     };
 
 
-
     var AmazonXHR = function(settings) {
         this.settings = settings;
     };
@@ -1110,59 +1084,73 @@
     AmazonXHR.prototype = {
         send: function(callback) {
             var self = this;
-            this.request_date = new Date();
-            utils.hash(this.settings.payload, function(hash) {
-                self.payload_hash = hash;
-                var url = "http://" + self.settings.auth.bucket + ".s3.amazonaws.com/" + self.settings.key;
-                var first = true;
-                for(var key in self.settings.querystring) {
-                    if(self.settings.querystring.hasOwnProperty(key)) {
-                        if(first) {
-                            url += "?";
-                        }
-                        first = false;
-                        url += key + "=" + self.settings.querystring[key] + "&";
+            self.request_date = new Date();
+
+            self.headers = self.settings.headers;
+            self.headers['host'] = self.settings.auth.bucket + ".s3.amazonaws.com";
+
+            var date_string = [
+                self.settings.auth.date.getUTCFullYear(),
+                utils.zfill(self.settings.auth.date.getUTCMonth() + 1, 2),
+                utils.zfill(self.settings.auth.date.getUTCDate(), 2)
+            ].join('');
+
+            self.settings.querystring['X-Amz-Date'] = utils.uriencode(utils.iso8601(self.request_date));
+            self.settings.querystring["X-Amz-Algorithm"] = "AWS4-HMAC-SHA256";
+            self.settings.querystring["X-Amz-Expires"] =  86400;
+            self.settings.querystring["X-Amz-Credential"] = utils.uriencode([
+                self.settings.auth.access_key,
+                "/" + date_string + "/",
+                self.settings.auth.region + "/s3/aws4_request"
+            ].join(''));
+            self.settings.querystring["X-Amz-SignedHeaders"] = "";
+
+            var header_keys = []
+            for(var key in self.headers) {
+                header_keys.push(key);
+            }
+            header_keys.sort();
+            self.settings.querystring["X-Amz-SignedHeaders"] = utils.uriencode(header_keys.join(';'));
+
+            self.settings.querystring["X-Amz-Signature"] = self.get_authorization_header();
+
+            delete self.headers['host'];  // keep this header only for hashing
+
+            var url = "http://" + self.settings.auth.bucket + ".s3.amazonaws.com/" + self.settings.key;
+            var first = true;
+            for(var key in self.settings.querystring) {
+                if(self.settings.querystring.hasOwnProperty(key)) {
+                    if(first) {
+                        url += "?";
                     }
+                    first = false;
+                    url += key + "=" + self.settings.querystring[key] + "&";
                 }
-                url = url.slice(0, -1);  // remove extra ampersand
+            }
+            url = url.slice(0, -1);  // remove extra ampersand
 
-                self.headers = self.settings.headers;
-                self.headers['host'] = self.settings.auth.bucket + ".s3.amazonaws.com";
-                self.headers['x-amz-content-sha256'] = hash;
-                self.headers['x-amz-date'] = self.request_date.toUTCString();
-                self.headers['Authorization'] = self.get_authorization_header();
-                delete self.headers['host'];  // keep this header only for hashing
+            var xhr = XHR({
+                url: url,
+                method: self.settings.method,
+                headers: self.headers,
+                body: self.settings.payload,
 
-                var xhr = XHR({
-                    url: url,
-                    method: self.settings.method,
-                    headers: self.headers,
-                    body: self.settings.payload,
-
-                    load_callback: self.settings.load_callback,
-                    progress_callback: self.settings.progress_callback,
-                    state_change_callback: self.settings.state_change_callback,
-                    error_callback: self.settings.error_callback,
-                    timeout_callback: self.settings.timeout_callback
-                });
-                if(callback) {
-                    callback(xhr);
-                }
+                load_callback: self.settings.load_callback,
+                progress_callback: self.settings.progress_callback,
+                state_change_callback: self.settings.state_change_callback,
+                error_callback: self.settings.error_callback,
+                timeout_callback: self.settings.timeout_callback
             });
+            if(callback) {
+                callback(xhr);
+            }
         },
         get_authorization_header: function() {
-            if(!this.payload_hash) {
-                throw "Calculate the payload hash first.";
-            }
             if(!this.settings.auth.date) {
                 throw "Invalid date given.";
             }
+
             var header = "";
-            var date_string = [
-                this.settings.auth.date.getUTCFullYear(),
-                utils.zfill(this.settings.auth.date.getUTCMonth() + 1, 2),
-                utils.zfill(this.settings.auth.date.getUTCDate(), 2)
-            ].join('');
 
             var header_keys = utils.get_sorted_keys(this.headers);
 
@@ -1177,16 +1165,9 @@
             var string_to_sign = this.get_string_to_sign(canonical_request, this.request_date);
             var signature = this.sign_request(string_to_sign);
 
-            header += "AWS4-HMAC-SHA256 Credential=" + this.settings.auth.access_key + "/";
-            header += date_string + "/" + this.settings.auth.region + "/s3/aws4_request";
-            header += ", SignedHeaders=" + signed_headers + ", Signature=" + signature;
-
-            return header;
+            return signature;
         },
         get_canonical_request: function() {
-            if(!this.payload_hash) {
-                throw "The SHA-256 hash of the payload must be calculated first.";
-            }
             var request = "";
 
             // verb
@@ -1201,9 +1182,9 @@
             for(i=0; i<querystring_keys.length; i++) {
                 key = querystring_keys[i];
                 value = this.settings.querystring[key];
-                request += utils.uriencode(key) + "=" + utils.uriencode(value) + "&";
+                request += utils.uriencode(key) + "=" + value + "&amp;";
             }
-            request = request.slice(0, -1) + "\n";  // remove extra ampersand
+            request = request.slice(0, -"&amp;".length) + "\n";  // remove extra ampersand
 
             // headers
             var header_keys = utils.get_sorted_keys(this.headers);
@@ -1220,16 +1201,14 @@
             }
 
             request = request.slice(0, -1) + "\n";
-
-            // payload hash
-            request += this.payload_hash;
+            request += "UNSIGNED-PAYLOAD";
 
             return request;
         },
         get_string_to_sign: function(canonical_request, time) {
             var to_sign = "";
             to_sign += "AWS4-HMAC-SHA256\n";
-            to_sign += time.toGMTString() + "\n";
+            to_sign += utils.iso8601(time) + "\n";
             to_sign += [
                 time.getUTCFullYear(),
                 utils.zfill(time.getUTCMonth() + 1, 2),
@@ -1237,7 +1216,7 @@
                 "/" + this.settings.auth.region + "/s3/aws4_request\n"
             ].join('');
 
-            to_sign += CryptoJS.SHA256(canonical_request).toString();
+            to_sign += CryptoJS.SHA256(canonical_request.replace(/&amp;/g, "&")).toString();
 
             return to_sign;
         },
@@ -1258,6 +1237,7 @@
         uriencode: function(string) {
             var output = encodeURIComponent(string);
             output = output.replace(/[^A-Za-z0-9_.~\-%]+/g, escape);
+            output = output.replace(/;/g, "%3B");
 
             // AWS percent-encodes some extra non-standard characters in a URI
             output = output.replace(/[*]/g, function(ch) {
@@ -1273,39 +1253,22 @@
                     keys.push(key);
                 }
             }
-            return keys.sort(function (a, b) {
-                return a.toLowerCase().localeCompare(b.toLowerCase());
-            });
+            return keys.sort();
+        },
+        iso8601: function(date) {
+            return [
+                date.getUTCFullYear(),
+                utils.zfill(date.getUTCMonth() + 1, 2),
+                utils.zfill(date.getUTCDate(), 2),
+                "T",
+                utils.zfill(date.getUTCHours(), 2),
+                utils.zfill(date.getUTCMinutes(), 2),
+                utils.zfill(date.getUTCSeconds(), 2),
+                "Z"
+            ].join("")
         },
         zfill: function(str, num) {
             return ("00000000000" + str).substr(-num);
-        },
-        hash: function(payload, callback) {
-            if(payload instanceof Blob) {
-                var loader = new FileReader();
-                loader.addEventListener("loadend", function() {
-                    if(is_master && worker) {
-                        var handler = function(e) {
-                            callback(e.data);
-                        };
-                        var worker = spawn_worker();
-                        worker.addEventListener("message", handler);
-                        worker.postMessage(loader.result);
-                    } else {
-                        var word_array = CryptoJS.lib.WordArray.create(loader.result);
-                        var hash = CryptoJS.SHA256(word_array).toString();
-                        callback(hash);
-                    }
-                });
-                loader.readAsArrayBuffer(payload);
-            } else if(payload instanceof ArrayBuffer) {
-                var word_array = CryptoJS.lib.WordArray.create(payload);
-                var hash = CryptoJS.SHA256(word_array).toString();
-                callback(hash);
-            } else {
-                var payload_hash = CryptoJS.SHA256(payload).toString();
-                callback(payload_hash);
-            }
         }
     };
 
