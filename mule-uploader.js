@@ -130,7 +130,7 @@
         File.prototype.slice = File.prototype.webkitSlice || File.prototype.mozSlice || File.prototype.slice;
 
         // verify that the browser has the needed HTML5 capabilities
-        if(!(namespace.File && namespace.FileList && namespace.Blob && namespace.FileReader && namespace.Worker)) {
+        if(!(namespace.File && namespace.FileList && namespace.Blob)) {
             log("HTML5 APIs not available.");
             return -1;
         }

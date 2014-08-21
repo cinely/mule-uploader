@@ -8,7 +8,7 @@ Mule-upload
 #### Features:
 
 * VERY resilient against upload interruptions. Even if your internet connection goes down, you accidentally close the browser or you want to continue the upload tomorrow, your upload progress is saved. Hell, it even works if you switch browsers or wifi connections!
-* HTML5 - uses the `File`, `FileList`, `FileReader`, `Worker` and `Blob` objects
+* HTML5 - uses the `File`, `FileList`, and `Blob` objects
 * Speed - it uses multiple workers for (potentially) four time increase in upload speed. E.g. on my computer I got 2.5-3 MB/s vs. < 1MB/s using only one worker. There is a tradeoff between upload speed and CPU consumption though.
 
 #### What people think of it:
@@ -26,7 +26,6 @@ In order to use this library, you need the following:
 * CORS settings allowing REST operations from your domain
 * a backend that generates signatures, and optionally keeps track of uploaded chunks (for smart resume, e.g. after you refresh your browser)
 
-0. The `<script>` element _must_ have `id="mule"`, like this: `<script type="text/javascript" id="mule" src="mule-uploader.js"></script>`. This is needed for Web Workers.
 1. You need to create an Amazon S3 bucket for uploads
 2. You need to edit your Amazon S3 CORS configuration to allow communication from your domain. Here is what I use:
 
