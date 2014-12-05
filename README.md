@@ -24,6 +24,7 @@ In order to use this library, you need the following:
 
 * an Amazon S3 bucket where the files will get uploaded
 * CORS settings allowing REST operations from your domain
+* a separate, restricted user in Amazon IAM that can only access the upload bucket, and (VERY important!) can only create objects on the bucket, not delete them
 * a backend that generates signatures, and optionally keeps track of uploaded chunks (for smart resume, e.g. after you refresh your browser)
 
 1. You need to create an Amazon S3 bucket for uploads
@@ -41,10 +42,50 @@ In order to use this library, you need the following:
      </CORSRule>
      ```
 
-3. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). 
+3. You need to create a separate user in IAM
+
+4. You need to set the bucket's policy to something like this (replace the `[placeholders]` first) :
+
+     ```
+     {
+       "Id": "Policy1417805650894",
+       "Statement": [
+         {
+           "Sid": "Stmt1417805616520",
+           "Action": "s3:*",
+           "Effect": "Allow",
+           "Resource": "arn:aws:s3:::[your_bucket]/*",
+           "Principal": {
+             "AWS": [
+               "arn:aws:iam::[your_user_id]:user/[your_user_name]"
+             ]
+           }
+         },
+         {
+           "Sid": "Stmt1417805647297",
+           "Action": [
+             "s3:DeleteBucket",
+             "s3:DeleteBucketPolicy",
+             "s3:DeleteBucketWebsite",
+             "s3:DeleteObject",
+             "s3:DeleteObjectVersion"
+           ],
+           "Effect": "Deny",
+           "Resource": "arn:aws:s3:::[your_bucket]/*",
+           "Principal": {
+             "AWS": [
+               "arn:aws:iam::[your_user_id]:user/[your_user_name]"
+             ]
+           }
+         }
+       ]
+     }
+     ```
+
+5. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). 
 Here are code samples for creating the signing key: http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html
 
-4. For detailed instructions about how each of the ajax actions should respond, read the source code; there are two actions:
+6. For detailed instructions about how each of the ajax actions should respond, read the source code; there are two actions:
   * `signing_key` - returns a signature for authentication -- http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html . Also returns key/upload\_id/chunks if the file upload can be resumed. Should also return a backup\_key to be used in case that the first one is not usable.
   * `chunk_loaded` - (optional) notifies the server that a chunk has been uploaded; this is needed for browser-refresh resume (the backend will store the chunks in a database, and give the user the file key + upload id + chunks uploaded for the file to be uploaded)
 
