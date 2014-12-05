@@ -34,7 +34,6 @@ In order to use this library, you need the following:
          <AllowedOrigin>[your domain]</AllowedOrigin>
          <AllowedMethod>PUT</AllowedMethod>
          <AllowedMethod>POST</AllowedMethod>
-         <AllowedMethod>DELETE</AllowedMethod>
          <AllowedMethod>GET</AllowedMethod>
          <AllowedMethod>HEAD</AllowedMethod>
          <MaxAgeSeconds>3000</MaxAgeSeconds>
