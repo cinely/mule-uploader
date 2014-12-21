@@ -154,6 +154,12 @@
             u.input = settings.file_input;
             u.file  = settings.file;
 
+            // the file starts automatically by default; you have to set
+            // autostart: false explicitly if you want to use a start button
+            // if autostart is false, you can use the Uploader.prototype.start()
+            // function. Note that the user has to select a file first
+            settings.autostart = ('autostart' in settings ? settings.autostart : true);
+
             // NOTE: For Amazon S3, the minimum chunk size is 5MB
             // we are using 6 for safe measure. Note that the maximum number of chunks
             // is 10,000, so for example, if the chunk size is 6MB, the maximum
@@ -219,6 +225,9 @@
 
             if (u.input) {
                 u.input.onchange = function(e, force) {
+                    if(!u.settings.autostart) {
+                        return true;
+                    }
                     // the `onchange` event may be triggered multiple times, so we
                     // must ensure that the callback is only executed the first time
                     if(u.get_state() != "waiting") {
@@ -237,6 +246,14 @@
             setTimeout(function() {
                 u.settings.on_init.apply(u);
             }, 100);
+        }
+
+        Uploader.prototype.start = function() {
+            if(this.input && this.input.files && this.input.files.length > 0) {
+                return this.upload_file(this.input.files[0], false);
+            } else {
+                alert("No file selected");
+            }
         }
 
         Uploader.prototype.upload_file = function(file, force) {
@@ -541,6 +558,8 @@
                 u.check_already_uploaded(function() {
                     // if already uploaded
                     u.set_state("finished");
+
+                    u.notify_upload_finished();
 
                     // trigger a final progress event callback, with 100%
                     u.settings.on_progress.call(u, u.file.size, u.file.size);
