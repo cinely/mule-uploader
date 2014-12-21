@@ -207,9 +207,6 @@
             settings.on_start = settings.on_start || function() {};
             settings.on_chunk_uploaded = settings.on_chunk_uploaded || function() {};
 
-            // extra parameters to give to the backend
-            settings.extra_params = settings.extra_params || {};
-
             // the location prefix of the uploader's backend
             settings.ajax_base = settings.ajax_base || "/upload-backend";
 
