@@ -170,7 +170,7 @@
 
             // the Amazon S3 bucket where you'll store the uploads
             settings.bucket = settings.bucket;
-            settings.host = settings.host || "http://" + settings.bucket + ".s3.amazonaws.com";
+            settings.host = settings.host || (location.protocol + "//s3.amazonaws.com/" + settings.bucket);
 
             // the Amazon S3 access key. DO NOT give the AWS Secret code!
             settings.access_key = settings.access_key;
@@ -1087,7 +1087,7 @@
             self.request_date = new Date();
 
             self.headers = self.settings.headers;
-            self.headers['host'] = self.settings.auth.bucket + ".s3.amazonaws.com";
+            self.headers['host'] = "s3.amazonaws.com";
 
             var date_string = [
                 self.settings.auth.date.getUTCFullYear(),
@@ -1116,7 +1116,7 @@
 
             delete self.headers['host'];  // keep this header only for hashing
 
-            var url = "http://" + self.settings.auth.bucket + ".s3.amazonaws.com/" + self.settings.key;
+            var url = location.protocol + "//s3.amazonaws.com/" + self.settings.auth.bucket + "/" + self.settings.key;
             var first = true;
             for(var key in self.settings.querystring) {
                 if(self.settings.querystring.hasOwnProperty(key)) {
@@ -1174,7 +1174,7 @@
             request += this.settings.method.toUpperCase() + "\n";
 
             // path
-            request += "/" + utils.uriencode(this.settings.key).replace(/%2F/g, "/") + "\n";
+            request += "/" + utils.uriencode(this.settings.auth.bucket) + "/" + utils.uriencode(this.settings.key).replace(/%2F/g, "/") + "\n";
 
             // querystring
             var querystring_keys = utils.get_sorted_keys(this.settings.querystring);
