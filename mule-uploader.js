@@ -542,8 +542,6 @@
                     // if already uploaded
                     u.set_state("finished");
 
-                    u.notify_upload_finished();
-
                     // trigger a final progress event callback, with 100%
                     u.settings.on_progress.call(u, u.file.size, u.file.size);
 
