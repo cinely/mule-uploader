@@ -1128,9 +1128,9 @@
 
             self.settings.querystring["X-Amz-Signature"] = self.get_authorization_header();
 
+            var url = location.protocol + "//" + self.headers['host'] + "/" + self.settings.auth.bucket + "/" + self.settings.key;
             delete self.headers['host'];  // keep this header only for hashing
 
-            var url = location.protocol + "//" + self.headers['host'] + "/" + self.settings.auth.bucket + "/" + self.settings.key;
             var first = true;
             for(var key in self.settings.querystring) {
                 if(self.settings.querystring.hasOwnProperty(key)) {
