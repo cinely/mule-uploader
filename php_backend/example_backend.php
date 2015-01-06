@@ -179,9 +179,9 @@ class Backend {
                 if($upload) {
                     $data['key'] = $upload['key'];
                     $data['upload_id'] = $upload['upload_id'];
-                    $data['chunks'] = array_map(
+                    $data['chunks_uploaded'] = array_map(
                         intval,
-                        explode(',', $upload['chunks'])
+                        explode(',', $upload['chunks_uploaded'])
                     );
                 }
             }
