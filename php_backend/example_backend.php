@@ -180,7 +180,7 @@ class Backend {
                     $data['key'] = $upload['key'];
                     $data['upload_id'] = $upload['upload_id'];
                     $data['chunks'] = array_map(
-                        intval,
+                        'intval',
                         explode(',', $upload['chunks'])
                     );
                 }
