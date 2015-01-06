@@ -1101,7 +1101,7 @@
             self.request_date = new Date();
 
             self.headers = self.settings.headers;
-            self.headers['host'] = "s3.amazonaws.com";
+            self.headers['host'] = "s3-"+self.settings.auth.region+".amazonaws.com";
 
             var date_string = [
                 self.settings.auth.date.getUTCFullYear(),
@@ -1130,7 +1130,7 @@
 
             delete self.headers['host'];  // keep this header only for hashing
 
-            var url = location.protocol + "//s3.amazonaws.com/" + self.settings.auth.bucket + "/" + self.settings.key;
+            var url = location.protocol + "//" + self.headers['host'] + "/" + self.settings.auth.bucket + "/" + self.settings.key;
             var first = true;
             for(var key in self.settings.querystring) {
                 if(self.settings.querystring.hasOwnProperty(key)) {
