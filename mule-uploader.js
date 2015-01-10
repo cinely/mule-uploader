@@ -176,7 +176,7 @@
 
             // the Amazon S3 bucket where you'll store the uploads
             settings.bucket = settings.bucket;
-            settings.host = settings.host || (location.protocol + "//s3.amazonaws.com/" + settings.bucket);
+            settings.host = settings.host || (location.protocol + "//s3-" + settings.region + ".amazonaws.com/" + settings.bucket);
 
             // the Amazon S3 access key. DO NOT give the AWS Secret code!
             settings.access_key = settings.access_key;
@@ -1101,7 +1101,7 @@
             self.request_date = new Date();
 
             self.headers = self.settings.headers;
-            self.headers['host'] = "s3.amazonaws.com";
+            self.headers['host'] = "s3-"+self.settings.auth.region+".amazonaws.com";
 
             var date_string = [
                 self.settings.auth.date.getUTCFullYear(),
@@ -1128,9 +1128,9 @@
 
             self.settings.querystring["X-Amz-Signature"] = self.get_authorization_header();
 
+            var url = location.protocol + "//" + self.headers['host'] + "/" + self.settings.auth.bucket + "/" + self.settings.key;
             delete self.headers['host'];  // keep this header only for hashing
 
-            var url = location.protocol + "//s3.amazonaws.com/" + self.settings.auth.bucket + "/" + self.settings.key;
             var first = true;
             for(var key in self.settings.querystring) {
                 if(self.settings.querystring.hasOwnProperty(key)) {
