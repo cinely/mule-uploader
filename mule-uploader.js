@@ -176,7 +176,6 @@
 
             // the Amazon S3 bucket where you'll store the uploads
             settings.bucket = settings.bucket;
-            settings.host = settings.host || (location.protocol + "//s3-" + settings.region + ".amazonaws.com/" + settings.bucket);
 
             // the Amazon S3 access key. DO NOT give the AWS Secret code!
             settings.access_key = settings.access_key;
@@ -198,13 +197,13 @@
             settings.acl = settings.acl || 'public-read';
 
             // various callbacks
-            settings.on_progress = settings.on_progress || function() {};
+            settings.on_progress = settings.on_progress             || function() {};
             settings.on_chunk_progress = settings.on_chunk_progress || function() {};
-            settings.on_select = settings.on_select || function() {};
-            settings.on_error = settings.on_error || function() {};
-            settings.on_complete = settings.on_complete || function() {};
-            settings.on_init = settings.on_init || function() {};
-            settings.on_start = settings.on_start || function() {};
+            settings.on_select = settings.on_select                 || function() {};
+            settings.on_error = settings.on_error                   || function() {};
+            settings.on_complete = settings.on_complete             || function() {};
+            settings.on_init = settings.on_init                     || function() {};
+            settings.on_start = settings.on_start                   || function() {};
             settings.on_chunk_uploaded = settings.on_chunk_uploaded || function() {};
 
             // the location prefix of the uploader's backend
@@ -251,7 +250,7 @@
             } else {
                 alert("No file selected");
             }
-        }
+        };
 
         Uploader.prototype.upload_file = function(file, force) {
             var u = this;
@@ -750,8 +749,10 @@
                 };
             }
 
+            var host = "s3" + util.region_string(u.settings.auth.region) + ".amazonaws.com";
+            var url = location.protocol + "//" + host + "/" + u.settings.auth.bucket + "/" + path;
             XHR({
-                url: u.settings.host + path,
+                url: url,
                 method: method,
                 load_callback: inner_handler,
                 error_callback: error_callback
@@ -1101,7 +1102,7 @@
             self.request_date = new Date();
 
             self.headers = self.settings.headers;
-            self.headers['host'] = "s3-"+self.settings.auth.region+".amazonaws.com";
+            self.headers['host'] = self.settings.auth.bucket + ".s3" + utils.region_string(self.settings.auth.region) + ".amazonaws.com";
 
             var date_string = [
                 self.settings.auth.date.getUTCFullYear(),
@@ -1128,7 +1129,7 @@
 
             self.settings.querystring["X-Amz-Signature"] = self.get_authorization_header();
 
-            var url = location.protocol + "//" + self.headers['host'] + "/" + self.settings.auth.bucket + "/" + self.settings.key;
+            var url = location.protocol + "//" + self.headers['host'] + "/" + self.settings.key;
             delete self.headers['host'];  // keep this header only for hashing
 
             var first = true;
@@ -1188,7 +1189,7 @@
             request += this.settings.method.toUpperCase() + "\n";
 
             // path
-            request += "/" + utils.uriencode(this.settings.auth.bucket) + "/" + utils.uriencode(this.settings.key).replace(/%2F/g, "/") + "\n";
+            request += "/" + utils.uriencode(this.settings.key).replace(/%2F/g, "/") + "\n";
 
             // querystring
             var querystring_keys = utils.get_sorted_keys(this.settings.querystring);
@@ -1283,7 +1284,17 @@
         },
         zfill: function(str, num) {
             return ("00000000000" + str).substr(-num);
+        },
+        region_string: function(region) {
+            // given an AWS region, it either returns an empty string for US-based regions
+            // or the region name preceded by a dash for non-US-based regions
+            // see this for more details: http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html
+            if(region && region.slice(0,2) !== 'us') {
+                return '-' + region;
+            }
+            return '';
         }
+
     };
 
 })(this);
