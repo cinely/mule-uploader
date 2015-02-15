@@ -315,13 +315,13 @@
 
             // initialize the file upload
             u.settings.on_select.call(u, file);
-            
-            // incorporated u.settings.extra_params in query_string assembly
-            var args = u.settings.extra_params || {};
-            args.filename = file.name;
-            args.filesize = file.size;
-            args.last_lodified = file.lastModifiedDate.valueOf();
-            
+
+            var args = utils.extend_object(u.settings.extra_params || {}, {
+                filename: file.name,
+                filesize: file.size,
+                last_modified: file.lastModifiedDate.valueOf()
+            });
+
             if(force) {
                 args.force = true;
             }
@@ -713,17 +713,19 @@
             var upload_id = u.upload_id;
             var url = u.settings.ajax_base + '/chunk_loaded/';
             
-            //incorporated u.settings.extra_params in query_string assembly
-            var args = u.settings.extra_params || {};
+            var args = utils.extend_object(u.settings.extra_params || {}, {
+                chunk: chunk,
+                key: key,
+                upload_id: upload_id,
+                filename: u.file.name,
+                filesize: u.file.size,
+                last_modified: u.file.lastModifiedDate.valueOf()
+            });
 
-            args.chunk = chunk;
-            args.key = key;
-            args.upload_id = upload_id;
-            args.filename = u.file.name;
-            args.filesize = u.file.size;
-            args.last_modified = u.file.lastModifiedDate.valueOf();
-
-            XHR({url:url,extra_params:args});
+            XHR({
+                url:url,
+                extra_params:args
+            });
 
         };
 
@@ -1297,6 +1299,13 @@
                 return '-' + region;
             }
             return '';
+        },
+        extend_object: function(base, extension) {
+            var result = base;
+            for(var key in extension) {
+                result[key] = extension[key];
+            }
+            return result;
         }
 
     };
