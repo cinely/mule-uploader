@@ -13,7 +13,7 @@ How to run the backend
 
 5. You should have a fully functional Mule Uploader
 
-6. You'll probably want to integrate this into antoher project. For that, you will have to change the `index.php`
+6. You'll probably want to integrate this into another project. For that, you will have to change the `index.php`
 file with updated paths for bootstrap and the `mule-uploader.js` file. Also note that the script is creating
 a sqlite3 database in `/tmp/mule-db`, you'll probably want to integrate with your own database.
 
