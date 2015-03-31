@@ -1295,7 +1295,7 @@
             // given an AWS region, it either returns an empty string for US-based regions
             // or the region name preceded by a dash for non-US-based regions
             // see this for more details: http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html
-            if(region && region.slice(0,2) !== 'us') {
+            if(region && region !== 'us-east-1') {
                 return '-' + region;
             }
             return '';
