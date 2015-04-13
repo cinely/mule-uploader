@@ -314,7 +314,12 @@
             }
 
             // initialize the file upload
-            u.settings.on_select.call(u, file);
+            try {
+                u.settings.on_select.call(u, file);
+            } catch(error) {
+                alert(error);
+                return false;
+            }
 
             var args = utils.extend_object(u.settings.extra_params || {}, {
                 filename: file.name,
@@ -712,7 +717,7 @@
             var key = u.settings.key;
             var upload_id = u.upload_id;
             var url = u.settings.ajax_base + '/chunk_loaded/';
-            
+
             var args = utils.extend_object(u.settings.extra_params || {}, {
                 chunk: chunk,
                 key: key,
