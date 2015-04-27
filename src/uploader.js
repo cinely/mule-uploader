@@ -204,7 +204,7 @@ export default class Uploader {
         self.settings.key = json.key || self.settings.key;
         self.settings.backupKey = self.settings.key;
 
-        if(!this.uploadId) {
+        if(!self.uploadId) {
           AmazonXHR.init(json, self.settings.key, file, function(e) {
             var xml = e.target.responseXML;
 
@@ -231,7 +231,7 @@ export default class Uploader {
                 // If it fails, re-initiate the upload, and force
                 // it to start a new upload
                 self.uploadId = null;
-                this._loadedChunks = null;
+                self._loadedChunks = null;
                 self._progress = null;
                 self._totalProgress = null;
                 self._loadedChunks = null;
