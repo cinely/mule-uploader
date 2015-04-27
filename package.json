@@ -1,0 +1,40 @@
+{
+  "name": "Mule-Uploader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "mule.js",
+  "scripts": {
+    "test": "mocha --compilers js:mocha-traceur --watch --growl --recursive spec",
+    "coverage": "gulp test",
+    "lint": "jshint src && echo 'all good!' || true",
+    "check": "jscs -e src && echo 'all good!' || true",
+    "build": "node build.js"
+  },
+  "author": "Gabi Purcaru",
+  "license": "GPL",
+  "dependencies": {
+    "crypto-js": "^3.1.4"
+  },
+  "devDependencies": {
+    "babel-runtime": "^5.1.11",
+    "babelify": "^6.0.2",
+    "browserify": "^9.0.7",
+    "gulp": "^3.8.11",
+    "gulp-istanbul": "^0.8.1",
+    "gulp-mocha": "^2.0.1",
+    "gulp-traceur": "^0.17.1",
+    "isparta": "^3.0.3",
+    "istanbul": "^0.3.13",
+    "istanbul-traceur": "^1.0.7",
+    "jasmine": "^2.2.1",
+    "jscs": "^1.12.0",
+    "jshint": "^2.7.0",
+    "minifyify": "^6.4.0",
+    "mocha": "^2.2.4",
+    "mocha-traceur": "",
+    "mockery": "^1.4.0",
+    "should": "^5.2.0",
+    "sinon": "^1.14.1",
+    "traceur": "0.0.89"
+  }
+}

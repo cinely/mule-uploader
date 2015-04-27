@@ -3,3 +3,8 @@
 *.pyc
 *.pyo
 *.db
+coverage
+.idea
+node_modules
+ENV
+envvars.sh

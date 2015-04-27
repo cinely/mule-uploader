@@ -47,7 +47,7 @@ Upload.metadata.create_all(bind=engine)
 
 
 ## Boilerplate
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 app.debug = DEBUG
 
 
@@ -89,16 +89,16 @@ def signing_key():
 
     filename = request.args['filename']
     filesize = request.args['filesize']
-    last_modified = request.args['last_modified']
+    last_modified = request.args['lastModified']
 
     data = {
         "date": date.isoformat(),
         "signature": key,
-        "access_key": AWS_ACCESS_KEY,
+        "accessKey": AWS_ACCESS_KEY,
         "region": AWS_REGION,
         "bucket": BUCKET,
-        "backup_key": str(random.randint(1, 1000000)),
-        "content_type": MIME_TYPE,
+        "backupKey": str(random.randint(1, 1000000)),
+        "contentType": MIME_TYPE,
     }
 
     try:
@@ -112,7 +112,7 @@ def signing_key():
 
         data.update({
             "key": u.key,
-            "upload_id": u.upload_id,
+            "uploadId": u.upload_id,
             "chunks": map(int, u.chunks_uploaded.split(',')),
         })
     except AssertionError:
@@ -129,11 +129,11 @@ def signing_key():
 @app.route("/upload-backend/chunk_loaded/")
 def upload_action():
     key = request.args.get('key')
-    upload_id = request.args.get('upload_id')
+    upload_id = request.args.get('uploadId')
 
     filename = request.args['filename']
     filesize = request.args['filesize']
-    last_modified = request.args['last_modified']
+    last_modified = request.args['lastModified']
     chunk = int(request.args['chunk'])
 
     if filesize > CHUNK_SIZE:
@@ -175,7 +175,7 @@ def index():
 
 if app.debug:
     app.wsgi_app = SharedDataMiddleware(app.wsgi_app, {
-        '/': os.path.join(os.path.dirname(__file__), '')
+        '/': os.path.join(os.path.dirname(__file__), '../../')
     })
 
 

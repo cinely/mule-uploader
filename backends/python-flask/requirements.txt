@@ -1,0 +1,6 @@
+Flask==0.9
+Jinja2==2.6
+SQLAlchemy==0.8.1
+Werkzeug==0.8.3
+argparse==1.2.1
+wsgiref==0.1.2
