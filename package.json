@@ -4,9 +4,10 @@
   "description": "",
   "main": "mule.js",
   "scripts": {
-    "test": "mocha --compilers js:mocha-traceur --watch --growl --recursive spec",
+    "test": "mocha --compilers js:mocha-traceur --growl --recursive spec",
     "lint": "jshint src spec && echo 'all good!' || true",
     "check": "jscs -e src -e spec && echo 'all good!' || true",
+    "watch-checks": "watch 'mocha --compilers js:mocha-traceur --growl --recursive spec && jscs -e src -e spec && jshint src spec && node build.js && echo \"All Good!\"' src",
     "build": "node build.js"
   },
   "author": "Gabi Purcaru",
@@ -27,6 +28,7 @@
     "mockery": "^1.4.0",
     "should": "^5.2.0",
     "sinon": "^1.14.1",
-    "traceur": "0.0.89"
+    "traceur": "0.0.89",
+    "watch": "^0.16.0"
   }
 }

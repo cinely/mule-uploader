@@ -1,6 +1,7 @@
 import XHR from './xhr';
 import AmazonXHR from './amazonXhr';
 import log from './log';
+import utils from './utils';
 import { KB, MB, GB, SECONDS } from './constants';
 
 export default class Uploader {
@@ -175,7 +176,14 @@ export default class Uploader {
     }
 
     // Initialize the file upload
-    self.settings.onSelect.call(this, file);
+    // also, allow the library user to programatically cancel the upload if,
+    // for example, the file is too large
+    const result = self.settings.onSelect.call(this, file);
+    if(result === false) {
+      self.file = null;
+      self.input.value = '';
+      return;
+    }
 
     var args = Object.assign(this.settings.extraParams || {}, {
       filename: file.name,
@@ -237,7 +245,7 @@ export default class Uploader {
                 self._loadedChunks = null;
                 self._uploadingChunks = null;
                 self._chunks = null;
-                self.settings.key = this.settings.backupKey;
+                self.settings.key = self.settings.backupKey;
                 self.uploadFile(file, true); // Force reload
               }
             );
