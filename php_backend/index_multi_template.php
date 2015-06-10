@@ -59,20 +59,44 @@
 
                     file_input: document.getElementById("file"),
                     access_key: "<?php echo $backend->AWS_ACCESS_KEY ?>",
-                    content_type: "application/octet-stream",
                     bucket: "<?php echo $backend->BUCKET ?>",
                     region: "<?php echo $backend->REGION ?>",
-                    key: "<?php echo $key ?>",
+
+                    content_disposition: false, //if false - don't add Content-Disposition:attachment for the uploaded file
+                    key_prefix: "test-subdir/", // "subdir" for the uploaded files, used if key is empty or not set, each file will be uploaded under it's own name
                     ajax_base: "backend",
 
 
                     max_size: 50 * (1 << 30), // 50 gb
+                    on_init: function() {
+                        $('#log').prepend("Uploader initialized\n");
+                    },
                     on_error: function() {
                         $('#log').prepend("Error occurred! You can help me fix this by filing a bug report here: https://github.com/cinely/mule-uploader/issues\n");
+                        $('.progress-bar').removeClass('active');
                     },
-                    on_select: function(fileObj) {
+                    on_select: function(fileObj, callback) {
+                        var u = this;
                         $('#log').prepend("File selected\n");
-                        $('.upload-progress').css('width', null);
+                        var $cf = $('#current_file');
+                        $cf.find('.upload-progress').css('width', null);
+                        $cf.find('.progress-bar').addClass('active');
+                        $cf.find('.filename').text(fileObj.name);
+
+                        //here we can re-define S3 key file will be uploaded with - set u.settings.key
+                        // IF left empty - all files will be uploaded with their own names under key_prefix subdir
+
+                        // OR you may do ajax request to server to get id from the server (for example, if you need to add record to db table and get autoincrement id)
+                        // sample server id request code:
+                        /*
+                        $.getJSON('/url/to/get/server/id', {file: fileObj.name}, function(json, textStatus) {
+                            fileObj.server_id = json.id;
+                            var file_extension = fileObj.name.split('.').pop();
+                            u.settings.key = u.settings.key_prefix + fileObj.server_id + file_extension;
+                            callback.call(u, fileObj); //tell mule-uploader to continue upload
+                        });
+                        return false; //indicate that mule-uploader has to wait for callback() to proceed with file upload
+                        */
                     },
                     on_start: function(fileObj) {
                         $('#explanation').animate({'opacity': 0}, 'slow', function() {
@@ -82,12 +106,13 @@
                         $('#log').prepend("Upload started\n");
                     },
                     on_progress: function(bytes_uploaded, bytes_total) {
+                        var u = this;
                         if(!last_update || (new Date - last_update) > 1000) {
                             var percent = bytes_uploaded / bytes_total * 100;
                             var speed = (bytes_uploaded - last_uploaded) / (new Date - last_update) * 1000;
                             last_update = new Date;
                             last_uploaded = bytes_uploaded;
-                            $('.progress .bar').width(percent / 100 * $('.progress').width());
+
                             var log = "Upload progress: " + format_size(bytes_uploaded) + " / "
                                 + format_size(bytes_total) + " (" + parseInt(percent, 10) + "." + parseInt(percent * 10, 10) % 10
                                 + "%)";
@@ -97,20 +122,34 @@
                             $('#log').prepend(log + "\n");
 
                             var text = parseInt(bytes_uploaded / bytes_total * 100) + "%";
-                            $('.progress .progress-bar').css('width', (bytes_uploaded / bytes_total * 100) + "%").text(text);
+                            var $cf = $('#current_file');
+                            $cf.find('.progress .progress-bar').css('width', (bytes_uploaded / bytes_total * 100) + "%").text(text);
+
+                            var $ca = $('#all_files');
+                            var text = parseInt( (u.files_total_uploaded_size+bytes_uploaded) / u.files_total_size * 100) + "%";
+                            $ca.find('.progress .progress-bar').css('width', ( (u.files_total_uploaded_size+bytes_uploaded) / u.files_total_size * 100) + "%").text(text);
                         }
-                    },
-                    on_init: function() {
-                        $('#log').prepend("Uploader initialized\n");
-                    },
-                    on_complete: function() {
-                        var url = "http://<?php echo $backend->BUCKET ?>.s3.amazonaws.com/" + this.settings.key;
-                        $('#log').prepend("Upload complete!\n");
-                        $('#log').prepend("The file url is " + url + ".\n");
-                        $('.progress').removeClass('active');
                     },
                     on_chunk_uploaded: function() {
                         $('#log').prepend("Chunk finished uploading\n");
+                    },
+                    on_complete: function(fileObj) {
+                        var u = this;
+                        var url = "http://<?php echo $backend->BUCKET ?>.s3.amazonaws.com/" + this.settings.key;
+                        $('#log').prepend("Upload complete for file: "+ fileObj.name +"\n");
+                        $('#log').prepend("The file url is " + url + "\n");
+                        var $cf = $('#current_file');
+                        $cf.find('.progress').removeClass('active');
+                        u.files_uploaded++;
+
+                        var $ca = $('#all_files');
+                        var text = parseInt(u.files_total_uploaded_size / u.files_total_size * 100) + "%";
+                        $ca.find('.progress .progress-bar').css('width', (u.files_total_uploaded_size / u.files_total_size * 100) + "%").text(text);
+                    },
+                    on_complete_all: function(){
+                        $('#log').prepend("All files uploaded\n");
+                        var $ca = $('#all_files');
+                        $ca.find('.progress').removeClass('active');
                     }
                 };
                 upload = mule_upload(settings);
@@ -121,7 +160,7 @@
     <body>
         <div class="container">
             <div class="jumbotron">
-                <h1>Mule Uploader</h1>
+                <h1>Mule Uploader <small>multi-file example</small></h1>
                 <p>
                     <em>Mule Uploader</em> gets your file from your computer to <a href="http://aws.amazon.com/s3/">Amazon S3</a>, no matter what.
                     Wireless just went down? A <a href="http://www.prwatch.org/files/images/angry-badger.jpg">badger</a> ate the power cord?
@@ -132,14 +171,26 @@
                     for your users.
                 </p>
                 <p id="explanation">
-                    Go ahead, select a file. It will start uploading automatically.
+                    Go ahead, select one or multiple files. It will start uploading automatically.
                 </p>
                 <br/>
-                <input type="file" id="file" />
-                <div class="progress progress-striped active">
-                    <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0">
+                <input type="file" id="file" multiple/>
+
+                <div id="current_file">
+                    <span class="filename">Current file</span>:
+                    <div class="progress progress-striped active">
+                        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0">
+                        </div>
                     </div>
                 </div>
+                <div id="all_files">
+                    Total progress:
+                    <div class="progress progress-striped active">
+                        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0">
+                        </div>
+                    </div>
+                </div>
+
                 <div style="clear: both"></div>
                 <textarea id="log" rows="10" class="form-control"></textarea>
                 <br/>
@@ -150,10 +201,6 @@
                     For more information, visit <a href="https://github.com/cinely/mule-uploader#mule-upload">the GitHub page</a>.
                     (you can see the source code for this demo there, <em>and</em> you get free cookies!)
                 </p>
-                <p>
-                    <b>New feature!</b> Multiple files upload now supported, <a href="?multi=1">demo page here</a>.
-                </p>
-                <p>
                 <p>If have any questions about this, drop me a line at
                     <a href="mailto:&#103;&#97;&#98;&#105;&#64;&#112;&#117;&#114;&#99;&#97;&#114;&#117;&#46;&#99;&#111;&#109;">
                         <span class="email">moc&#46;uracrup&#64;ibag</span>

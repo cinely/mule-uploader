@@ -2,7 +2,6 @@ SetEnv AWS_ACCESS_KEY [aws_access_key]
 SetEnv AWS_SECRET [aws_secret]
 SetEnv AWS_REGION us-east-1
 SetEnv BUCKET mule-uploader-demo
-SetEnv MIME_TYPE application/octet-stream
 
 RewriteEngine On
 RewriteRule ^$ example_backend.php
