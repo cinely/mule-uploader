@@ -712,7 +712,7 @@
             var key = u.settings.key;
             var upload_id = u.upload_id;
             var url = u.settings.ajax_base + '/chunk_loaded/';
-            
+
             var args = utils.extend_object(u.settings.extra_params || {}, {
                 chunk: chunk,
                 key: key,
@@ -755,8 +755,9 @@
                 };
             }
 
-            var host = "s3" + utils.region_string(u.settings.auth.region) + ".amazonaws.com";
-            var url = location.protocol + "//" + host + "/" + u.settings.auth.bucket + "/" + path;
+            console.log(u.settings);
+            var host = "s3" + utils.region_string(u.settings.region) + ".amazonaws.com";
+            var url = location.protocol + "//" + host + "/" + u.settings.bucket + "/" + path;
             XHR({
                 url: url,
                 method: method,

@@ -170,6 +170,7 @@ def upload_action():
 def index():
     return render_template('index.html', aws_access_key=AWS_ACCESS_KEY,
                            mime_type=MIME_TYPE, bucket=BUCKET,
+                           region=AWS_REGION,
                            key=str(random.randint(1, 1000000)))
 
 
