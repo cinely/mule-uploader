@@ -1,7 +1,7 @@
 /**
  * mule-uploader.js
  *
- * Copyright 2012-2014, Gabriel Purcaru
+ * Copyright 2015, Gabriel Purcaru
  * Released under GPL License.
  * License: http://www.gnu.org/copyleft/gpl.html
  */
