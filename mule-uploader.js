@@ -755,7 +755,7 @@
                 };
             }
 
-            var host = "s3" + util.region_string(u.settings.auth.region) + ".amazonaws.com";
+            var host = "s3" + utils.region_string(u.settings.auth.region) + ".amazonaws.com";
             var url = location.protocol + "//" + host + "/" + u.settings.auth.bucket + "/" + path;
             XHR({
                 url: url,
