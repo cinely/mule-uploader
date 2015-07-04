@@ -81,7 +81,6 @@ class DB extends PDO {
 
 class Backend {
 
-    public $MIME_TYPE;
     public $BUCKET;
     public $AWS_SECRET;
     public $AWS_ACCESS_KEY;
@@ -91,7 +90,6 @@ class Backend {
     public $CHUNK_SIZE = 6291456;  // 6MB
 
     public function __construct() {
-        $this->MIME_TYPE = getenv_default('MIME_TYPE', 'the_mime_type');
         $this->BUCKET = getenv_default('BUCKET', 'my_bucket');
         $this->AWS_SECRET = getenv_default('AWS_SECRET', 'the_secret_access_key');
         $this->AWS_ACCESS_KEY = getenv_default('AWS_ACCESS_KEY', 'the_public_access_key');
@@ -162,6 +160,7 @@ class Backend {
             $filename = $_GET['filename'];
             $filesize = $_GET['filesize'];
             $last_modified = $_GET['last_modified'];
+            $contenttype = $_GET['contenttype'];
 
             $data = array(
                 "date" => $date->format('c'),
@@ -170,7 +169,7 @@ class Backend {
                 "region" => $this->REGION,
                 "bucket" => $this->BUCKET,
                 "backup_key" => strval(rand(0, 10000000000)),
-                "content_type" => $this->MIME_TYPE
+                "content_type" => $contenttype
             );
 
             $fresh_upload = isset($_GET['force']);
@@ -199,7 +198,11 @@ $backend = new Backend();
 
 if(!isset($_GET['action'])) {
     $key = (string)rand(1, 1000000);
-    include 'index_template.php';
+    if ( isset($_GET['multi']) ){
+       include 'index_multi_template.php';
+    }else{
+       include 'index_template.php';
+    }
 } else {
     echo $backend->upload_action($_GET['action']);
 }

@@ -10,10 +10,11 @@ Mule-upload
 * VERY resilient against upload interruptions. Even if your internet connection goes down, you accidentally close the browser or you want to continue the upload tomorrow, your upload progress is saved. Hell, it even works if you switch browsers or wifi connections!
 * HTML5 - uses the `File`, `FileList`, and `Blob` objects
 * Speed - it uses multiple workers for (potentially) four time increase in upload speed. E.g. on my computer I got 2.5-3 MB/s vs. < 1MB/s using only one worker. There is a tradeoff between upload speed and CPU consumption though.
+* Multiple file uploads supported
 
 #### What people think of it:
 
-> We use Mule Uploader to archive audio in our Rails/AngularJS application www.popuparchive.org. I tried many projects that integrate with S3 in various ways before using this. By using the multipart upload API, multiple threads, and resumable uploads, it met our essential needs for handling large media files, and without requiring a specific UI or DOM elements.  It also came with no dependencies on jQuery or other libraries, making it easy to add to our AngularJS front-end. 
+> We use Mule Uploader to archive audio in our Rails/AngularJS application www.popuparchive.org. I tried many projects that integrate with S3 in various ways before using this. By using the multipart upload API, multiple threads, and resumable uploads, it met our essential needs for handling large media files, and without requiring a specific UI or DOM elements.  It also came with no dependencies on jQuery or other libraries, making it easy to add to our AngularJS front-end.
 >
 > -- Andrew Kuklewicz, Tech Director prx.org, Lead Developer www.popuparchive.org.
 
@@ -82,12 +83,49 @@ In order to use this library, you need the following:
      }
      ```
 
-5. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py). 
+5. You need a backend to sign your REST requests (a Flask + SQLAlchemy one is available at example_backend.py).
 Here are code samples for creating the signing key: http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html
 
 6. For detailed instructions about how each of the ajax actions should respond, read the source code; there are two actions:
   * `signing_key` - returns a signature for authentication -- http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html . Also returns key/upload\_id/chunks if the file upload can be resumed. Should also return a backup\_key to be used in case that the first one is not usable.
   * `chunk_loaded` - (optional) notifies the server that a chunk has been uploaded; this is needed for browser-refresh resume (the backend will store the chunks in a database, and give the user the file key + upload id + chunks uploaded for the file to be uploaded)
+
+7. Setup minimal html code:
+  ```
+  <input type="file" id="file"/>
+  ```
+  or if you want to allow multiple files to be uploaded at once:
+  ```
+  <input type="file" id="file" multiple/>
+  ```
+8. Setup minimal javascript code:
+  * for single file upload:
+  ```
+    var settings = {
+        file_input: document.getElementById("file"),
+        access_key: YOUR_AWS_ACCESS_KEY,
+        content_type: "application/octet-stream",
+        bucket: YOUR_AWS_BUCKET,
+        region: YOUR_AWS_REGION,
+        key: YOUR_S3_FILE_PATH,
+        ajax_base: YOUR_BACKEND_URL
+    };
+    var upload = mule_upload(settings);
+  ```
+  * for multiple file uploads:
+  ```
+    var settings = {
+        file_input: document.getElementById("file"),
+        access_key: YOUR_AWS_ACCESS_KEY,
+        bucket: YOUR_AWS_BUCKET,
+        region: YOUR_AWS_REGION,
+
+        content_disposition: false, // if false - don't add Content-Disposition:attachment header for the uploaded file
+        key_prefix: "some-subdir/", // "subdir" for the uploaded files, used if "key" setting is empty or not set, each file will be uploaded under it's own name.ext
+        ajax_base: YOUR_BACKEND_URL
+    };
+    var upload = mule_upload(settings);
+  ```
 
 
 If you'd want example backends in other languages/with other frameworks, let me know.
@@ -119,4 +157,4 @@ Due to the new technology used by this library, it's only compatible with the fo
 * Updated Chrome
 * Updated Firefox
 * Safari 6+
-* not sure about IE
+* IE 11+
