@@ -120,3 +120,5 @@ Due to the new technology used by this library, it's only compatible with the fo
 * Updated Firefox
 * Safari 6+
 * not sure about IE
+
+License: [GPL](http://www.gnu.org/licenses/gpl-3.0.en.html)
