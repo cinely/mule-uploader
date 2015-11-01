@@ -1,3 +1,5 @@
+/* @flow */
+
 import { DEBUG } from './constants';
 
 export default function() {

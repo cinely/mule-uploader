@@ -1,25 +1,46 @@
+/* @flow */
+
 import XHR from './xhr';
 import utils from './utils';
 import SHA256 from 'crypto-js/sha256';
 import HmacSHA256 from 'crypto-js/hmac-sha256';
 import Hex from 'crypto-js/enc-hex';
 
-export default class AmazonXHR {
-  constructor(settings) {
-    this.settings = settings || {};
-    this.settings.auth = this.settings.auth || {};
-    this.settings.headers = this.settings.headers || {};
-    this.settings.querystring = this.settings.querystring || {};
+type AmazonXHRSettings = {
+  auth: any;
+  headers: any;
+  querystring: any;
+  key: ?string;
+  method: string;
+  payload: any;
+  loadCallback: (event: XHREvent) => void;
+  progressCallback: () => void;
+  stateChangeCallback: () => void;
+  errorCallback: () => void;
+  timeoutCallback: () => void;
+};
 
-    if(!this.settings.auth.date) {
-      throw new Error('Invalid instantiation, missing auth.date');
-    }
-    if(!this.settings.auth.signature) {
-      throw new Error('No signature provided.');
-    }
-  }
+type SendCallback = (() => void);
 
-  send(callback) {
+export type XHREvent = {
+  target: {
+    status: number;
+    responseXML: any;
+    responseText: string;
+  };
+};
+
+export class AmazonXHR {
+  settings: AmazonXHRSettings;
+  requestDate: Date;
+  headers: Object;
+  xhr: ?XHR;
+
+  constructor(settings: AmazonXHRSettings) {
+    this.settings = settings;
+  };
+
+  send(callback: ?SendCallback): AmazonXHR {
     this.requestDate = new Date();
 
     this.headers = this.settings.headers;
@@ -90,7 +111,7 @@ export default class AmazonXHR {
     return this;
   }
 
-  getAuthorizationHeader() {
+  getAuthorizationHeader(): string {
     let header = '';
 
     const headerKeys = Object.keys(this.headers).sort();
@@ -106,7 +127,7 @@ export default class AmazonXHR {
     return signature;
   }
 
-  getCanonicalRequest() {
+  getCanonicalRequest(): string {
     let request = `
       ${this.settings.method.toUpperCase()}
       /${utils.uriencode(this.settings.key).replace(/%2F/g, '/')}
@@ -154,7 +175,7 @@ export default class AmazonXHR {
     return request;
   }
 
-  getStringToSign(canonicalRequest, time) {
+  getStringToSign(canonicalRequest: string, time: Date): string {
     return `
       AWS4-HMAC-SHA256
       ${utils.iso8601(time)}
@@ -170,7 +191,7 @@ export default class AmazonXHR {
     `.trim().replace(/^\s+/gm, '');
   }
 
-  signRequest(stringToSign) {
+  signRequest(stringToSign: string): string {
     var res = HmacSHA256(
       stringToSign,
       Hex.parse(this.settings.auth.signature)
@@ -179,7 +200,7 @@ export default class AmazonXHR {
   }
 
   // static
-  static init(auth, key, file, callback) {
+  static init(auth, key, file, callback): XHR {
     return new AmazonXHR({
       auth: auth,
       key: key,
@@ -194,6 +215,10 @@ export default class AmazonXHR {
       },
       payload: '',
       loadCallback: callback,
+      errorCallback: () => {},
+      progressCallback: () => {},
+      stateChangeCallback: () => {},
+      timeoutCallback: () => {},
     }).send();
   }
 
@@ -207,6 +232,9 @@ export default class AmazonXHR {
       readystateCallback = callbacks.stateChangeCallback;
     } else {
       callback = callbacks;
+      errorCallback = () => {};
+      progressCallback = () => {};
+      readystateCallback = () => {};
     }
     var querystring = {
       partNumber: chunkNum + 1,
@@ -223,26 +251,30 @@ export default class AmazonXHR {
       errorCallback: errorCallback,
       progressCallback: progressCallback,
       stateChangeCallback: readystateCallback,
+      timeoutCallback: () => {},
     })).send(xhrCallback);
   }
 
-  static list(auth, file, key, uploadId, chunkSize, callback,
-              errorCallback, marker) {
-    var querystring = {
+  static list(auth, file: File, key: string, uploadId, chunkSize, callback,
+              errorCallback: () => void, marker) {
+    var querystring: { [key: string]: string } = {
       uploadId,
     };
     if(marker) {
       querystring['part-number​-marker'] = marker;
     }
     return new AmazonXHR({
-      auth: auth,
-      key: key,
+      auth,
+      key,
       method: 'GET',
-      querystring: querystring,
+      querystring,
       headers: {},
       payload: '',
-      errorCallback: errorCallback,
-      loadCallback: function(e) {
+      errorCallback,
+      progressCallback: () => {},
+      stateChangeCallback: () => {},
+      timeoutCallback: () => {},
+      loadCallback: function(e: XHREvent) {
         if(e.target.status === 404) {
           // I.e. the file was already uploaded; start fresh
           if(errorCallback) {
@@ -257,7 +289,7 @@ export default class AmazonXHR {
         var parts = [];
         var xmlParts = xml.getElementsByTagName('Part');
         var numChunks = Math.ceil(file.size / chunkSize);
-        let tagContent = (tag, prop) => {
+        let tagContent = function(tag, prop): string {
           return tag.getElementsByTagName(prop)[0].textContent;
         };
         for(let i = 0; i < xmlParts.length; i++) {
@@ -285,9 +317,18 @@ export default class AmazonXHR {
         var isTruncated = tagContent(xml, 'IsTruncated');
         if(isTruncated.toString() === 'true') {
           var partMarker = tagContent(xml, 'NextPartNumberMarker');
-          AmazonXHR.list(auth, key, uploadId, chunkSize, function(newParts) {
-            callback(parts.concat(newParts));
-          }, errorCallback, partMarker);
+          AmazonXHR.list(
+            auth,
+            file,
+            key,
+            uploadId,
+            chunkSize,
+            function(newParts) {
+              callback(parts.concat(newParts));
+            },
+            errorCallback,
+            partMarker
+          );
         } else {
           callback(parts);
         }
@@ -300,18 +341,19 @@ export default class AmazonXHR {
 
     // compose the CompleteMultipartUpload request for putting
     // the chunks together
-    var data = '<CompleteMultipartUpload>';
+    var dataString: string = '<CompleteMultipartUpload>';
 
     parts.map(([number, etag]) => {
-      data += `
+      dataString += `
         <Part>
         <PartNumber>${number}</PartNumber>
         <ETag>${etag}</ETag>
         </Part>
       `.trim();
     });
-    data += '</CompleteMultipartUpload>';
+    dataString += '</CompleteMultipartUpload>';
 
+    var data: string | Blob = dataString;
     // firefox requires a small hack
     if(typeof window !== 'undefined' &&
         window.navigator &&
@@ -327,6 +369,10 @@ export default class AmazonXHR {
       headers: {},
       payload: data,
       loadCallback: callback,
+      errorCallback: () => {},
+      progressCallback: () => {},
+      stateChangeCallback: () => {},
+      timeoutCallback: () => {},
     }).send();
   }
 }

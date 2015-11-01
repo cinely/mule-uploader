@@ -1,3 +1,7 @@
+/* @flow */
+
+declare function escape(source: string): string;
+
 export default class Utils {
   static regionString(region) {
     // Given an AWS region, it either returns an empty string for

@@ -1,4 +1,13 @@
-export default function XHR(args) {
+/* @flow */
+
+type XHRSettings = {
+  headers: { [key: string]: string };
+  method: string;
+  url: string;
+  extraParams?: { [key: string]: string };
+};
+
+export default function XHR(args: XHRSettings): XMLHttpRequest {
   // The user may or may not pass any headers
   args.headers = args.headers || {};
 
@@ -35,7 +44,7 @@ export default function XHR(args) {
 
   // Adding extra params as needed
   var url = args.url;
-  if(args.extraParams) {
+  if(typeof args.extraParams === 'object') {
     for(var paramName in args.extraParams) {
       if(args.extraParams.hasOwnProperty(paramName)) {
         if(url.indexOf('?') !== -1) {
@@ -45,7 +54,10 @@ export default function XHR(args) {
         }
 
         url += encodeURIComponent(paramName) + '=';
-        url += encodeURIComponent(args.extraParams[paramName]);
+        // keep the typechecker happy
+        if(typeof args.extraParams === 'object') {
+          url += encodeURIComponent(args.extraParams[paramName]);
+        }
       }
     }
   }

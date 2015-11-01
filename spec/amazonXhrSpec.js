@@ -20,7 +20,7 @@ describe('AmazonXHR', () => {
       warnOnUnregistered: false,
     });
     mockery.registerMock('./xhr', XHRMock);
-    AmazonXHR = require('../src/amazonXhr').default;
+    AmazonXHR = require('../src/amazonXhr').AmazonXHR;
   });
 
   afterEach(() => {
@@ -42,7 +42,9 @@ describe('AmazonXHR', () => {
     it(`should send a ${verb} request`, () => {
       let amazonXhr = new AmazonXHR({
         method: verb,
-        auth: dummyAuth
+        auth: dummyAuth,
+        headers: {},
+        querystring: {},
       }).send();
       XHRMock.called.should.be.true;
     });

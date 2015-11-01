@@ -5,7 +5,7 @@ var minifyify = require("minifyify");
 
 browserify({ debug: true })
   .transform(babelify, { optional: ["runtime"] })
-  // .plugin(minifyify, { map: false })
+  // .plugin(minifyify, { map: false, output: false })
   .require("./src/mule.js", { entry: true })
   .bundle()
   .on("error", function (err) { console.log("Error : " + err.message); })

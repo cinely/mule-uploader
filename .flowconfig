@@ -1,0 +1,11 @@
+[ignore]
+./backends
+./spec
+./dist
+./node_modules
+
+[include]
+
+[libs]
+
+[options]

@@ -1,11 +1,54 @@
+/* @flow */
+
 import XHR from './xhr';
-import AmazonXHR from './amazonXhr';
+import { AmazonXHR, XHREvent } from './amazonXhr';
 import log from './log';
 import utils from './utils';
 import { KB, MB, GB, SECONDS } from './constants';
 
+type UploaderSettings = {
+  fileInput: any;
+  file: any;
+  autostart: any;
+  chunkSize: number;
+  maxSize: number;
+  numWorkers: number;
+  key: string;
+  backupKey: string;
+  bucket: string;
+  accessKey: string;
+  contentType: string;
+  acl: string;
+  onProgress: () => void;
+  onChunkProgress: () => void;
+  onSelect: () => void;
+  onError: () => void;
+  onComplete: () => void;
+  onInit: () => void;
+  onStart: () => void;
+  onChunkUploaded: () => void;
+  ajaxBase: string;
+  acceptedExtensions: string;
+};
+
 export default class Uploader {
-  constructor(settings) {
+  input: any;
+  file: any;
+  settings: UploaderSettings;
+  auth: any;
+  uploadId: any;
+  chunks: Array<boolean>;
+  loadedChunks: Array<Number>;
+  progress: { [key: number]: number };
+  totalProgress: number;
+  loadedChunks: any;
+  uploadingChunks: any;
+  startFired: boolean;
+  intervals: any;
+  chunkXhr: Array<XMLHttpRequest>;
+  state: string;
+
+  constructor(settings: UploaderSettings) {
     let self = this;
 
     settings = settings || {};
@@ -113,7 +156,7 @@ export default class Uploader {
     }
   }
 
-  uploadFile(file, force) {
+  uploadFile(file: any, force: boolean) {
     var self = this;
 
     // The `onchange` event may be triggered multiple times, so we
@@ -136,7 +179,11 @@ export default class Uploader {
     // but the chance for a false positive is basically zero
     // some browsers don't report the last modified date, so we default
     // to a blank date
-    self.file.lastModifiedDate = this.file.lastModifiedDate || new Date(0);
+    try {
+      self.file.lastModifiedDate = this.file.lastModifiedDate || new Date(0);
+    } catch(e) {
+      // ...
+    }
 
     if(self.file.size > self.settings.maxSize) {
       alert([
@@ -203,6 +250,8 @@ export default class Uploader {
     XHR({
       url: self.settings.ajaxBase + '/signing_key/',
       extraParams: args,
+      headers: {},
+      method: 'GET',
       loadCallback: function(e) {
         var json = JSON.parse(e.target.responseText);
         json.date = new Date(json.date);
@@ -239,12 +288,12 @@ export default class Uploader {
                 // If it fails, re-initiate the upload, and force
                 // it to start a new upload
                 self.uploadId = null;
-                self._loadedChunks = null;
-                self._progress = null;
-                self._totalProgress = null;
-                self._loadedChunks = null;
-                self._uploadingChunks = null;
-                self._chunks = null;
+                self.loadedChunks = null;
+                self.progress = {};
+                self.totalProgress = 0;
+                self.loadedChunks = null;
+                self.uploadingChunks = null;
+                self.chunks = [];
                 self.settings.key = self.settings.backupKey;
                 self.uploadFile(file, true); // Force reload
               }
@@ -273,7 +322,7 @@ export default class Uploader {
 
       // And also trigger a progress callback with 0%
       self.settings.onProgress.call(self, 0, self.file.size);
-      self._startFired = true;
+      self.startFired = true;
     }
 
     // From now on, we are "processing" the file upload
@@ -307,7 +356,7 @@ export default class Uploader {
     }
   }
 
-  uploadChunk(chunk) {
+  uploadChunk(chunk: number) {
     var self = this;
 
     // Make sure we're in processing mode
@@ -355,8 +404,63 @@ export default class Uploader {
     // We need the last progress time in order to detect hanging
     // uploads
     var lastProgressTime = new Date();
-    self._intervals = self._intervals || {};
+    self.intervals = self.intervals || {};
 
+    var errorHandled = false;
+    var errorHandler: () => void = function() {
+      var errorArguments = arguments;
+      var xhr = this;
+      // The upload may have finished, so check for that
+      self.checkAlreadyUploaded(function() {
+        // If already uploaded
+        self.setState('finished');
+
+        // TODO: what is this?
+        // self.notifyUploadFinished();
+
+        // Trigger a final progress event callback, with 100%
+        self.settings.onProgress.call(self, self.file.size, self.file.size);
+
+        // Also trigger the complete event callback
+        self.settings.onComplete.call(self);
+      }, function() {
+        // We have a genuine error
+        log(`Error: ${errorArguments}`);
+
+        // make sure we don't handle the same error more than once
+        if(errorHandled) {
+          return;
+        }
+        errorHandled = true;
+
+        // abort the chunk upload
+        self.setChunkUploading(chunk, false);
+        self.setChunkFinished(chunk, false);
+        self.setProgress(chunk, 0);
+        log('Abort');
+        try {
+          xhr.abort();
+        } catch(e) {
+          log(e);
+        }
+
+        log(`Retry chunk: ${chunk}`);
+
+        // Clear the watcher interval
+        clearInterval(self.intervals[chunk]);
+
+        // Re-try the upload
+        setTimeout(function() {
+          if(self.getState() === 'processing') {
+            // And proceed
+            var nextChunk = self.getNextChunk(chunk);
+            if(nextChunk !== -1) {
+              self.uploadChunk(nextChunk);
+            }
+          }
+        }, 1000);
+      });
+    };
 
     // The "readystatechange" handler
     var handler = function(e) {
@@ -369,7 +473,9 @@ export default class Uploader {
 
       // If we don't receive a 2XX response, trigger an error
       if(parseInt(e.target.status) / 100 !== 2) {
-        return errorHandler();
+        if(typeof errorHandler === 'function') {
+          return errorHandler.apply(this);
+        }
       }
 
       // At this point, we know that this chunk finished uploading
@@ -382,7 +488,7 @@ export default class Uploader {
       self.settings.onChunkUploaded.call(self, chunk);
 
       // Cancel the xhr watcher interval
-      clearInterval(self._intervals[chunk]);
+      clearInterval(self.intervals[chunk]);
 
       // Mark the chunk as finished
       self.setProgress(chunk, self.getChunkSize(chunk));
@@ -425,61 +531,6 @@ export default class Uploader {
       lastProgressTime = new Date();
     };
 
-    var errorHandled = false;
-    var errorHandler = function() {
-      var errorArguments = arguments;
-      var xhr = this;
-      // The upload may have finished, so check for that
-      self.checkAlreadyUploaded(function() {
-        // If already uploaded
-        self.setState('finished');
-
-        self.notifyUploadFinished();
-
-        // Trigger a final progress event callback, with 100%
-        self.settings.onProgress.call(self, self.file.size, self.file.size);
-
-        // Also trigger the complete event callback
-        self.settings.onComplete.call(self);
-      }, function() {
-        // We have a genuine error
-        log(`Error: ${errorArguments}`);
-
-        // make sure we don't handle the same error more than once
-        if(errorHandled) {
-          return;
-        }
-        errorHandled = true;
-
-        // abort the chunk upload
-        self.setChunkUploading(chunk, false);
-        self.setChunkFinished(chunk, false);
-        self.setProgress(chunk, 0);
-        log('Abort');
-        try {
-          xhr.abort();
-        } catch(e) {
-          log(e);
-        }
-
-        log(`Retry chunk: ${chunk}`);
-
-        // Clear the watcher interval
-        clearInterval(self._intervals[chunk]);
-
-        // Re-try the upload
-        setTimeout(function() {
-          if(self.getState() === 'processing') {
-            // And proceed
-            var nextChunk = self.getNextChunk(chunk);
-            if(nextChunk !== -1) {
-              self.uploadChunk(nextChunk);
-            }
-          }
-        }, 1000);
-      });
-    };
-
     AmazonXHR.uploadChunk(
       self.auth, self.settings.key, self.uploadId,
       chunk, self.file.slice(start, end), {
@@ -488,19 +539,23 @@ export default class Uploader {
         errorCallback: errorHandler,
         timeoutCallback: errorHandler,
       }, function(xhr) {
-        self._chunkXhr = self._chunkXhr || [];
-        self._chunkXhr.push(xhr);
+        self.chunkXhr = self.chunkXhr || [];
+        self.chunkXhr.push(xhr);
 
         // The watcher interval; it cancels the xhr if it times out
-        self._intervals[chunk] = setInterval(function() {
+        self.intervals[chunk] = setInterval(function() {
           if(lastProgressTime &&
               (new Date() - lastProgressTime) > 15 * SECONDS) { // 15s
             log('Chunk Failed; retry');
-            clearInterval(self._intervals[chunk]);
+            clearInterval(self.intervals[chunk]);
             if(self.getState() === 'processing') {
               xhr.abort();
               errorHandler.call(xhr);
-              self._chunkXhr[this._chunkXhr.indexOf(xhr)] = null;
+
+              if (typeof self.chunkXhr[this._chunkXhr.indexOf(xhr)]
+                    !== 'undefined') {
+                delete self.chunkXhr[this._chunkXhr.indexOf(xhr)];
+              }
             }
           }
         }, 4 * SECONDS); // Every 4s
@@ -524,9 +579,9 @@ export default class Uploader {
     ); // 100% done.
 
 
-    var handler = function(e) {
+    var handler = function(e: XHREvent) {
       // I.e. if it's a 2XX response
-      if(parseInt(e.target.status / 100) === 2) {
+      if(Math.floor(e.target.status / 100) === 2) {
         log('Finished file.');
         self.setState('finished');
         self.settings.onProgress.call(
@@ -539,14 +594,18 @@ export default class Uploader {
           e.target.responseText.indexOf('EntityTooSmall') !== -1) {
         // An "EntityTooSmall" error means that we missed a chunk
         AmazonXHR.list(
-          self.auth, self.file, self.settings.key,
-          self.uploadId, self.settings.chunkSize,
-          function(parts) {
+          self.auth,
+          self.file,
+          self.settings.key,
+          self.uploadId,
+          self.settings.chunkSize,
+          (parts) => {
             self.updateChunks(parts);
             var nextChunk = self.getNextChunk();
             self.setState('processing');
             self.uploadChunk(nextChunk);
-          }
+          },
+          () => {}
         );
       } else if(e.target.status === 404) {
         // 404 = NoSuchUpload = check if already finished
@@ -559,12 +618,16 @@ export default class Uploader {
           handler({
             target: {
               status: 200,
+              responseXML: '',
+              responseText: '',
             },
           });
         }, function() {
           handler({
             target: {
               status: 404,
+              responseXML: '',
+              responseText: '',
             },
           });
         });
@@ -574,7 +637,7 @@ export default class Uploader {
     AmazonXHR.list(
       self.auth, self.file, self.settings.key,
       self.uploadId, self.settings.chunkSize,
-      function(parts) {
+      (parts) => {
         var numChunks = Math.ceil(self.file.size / self.settings.chunkSize);
 
         // Check that we uploaded all the chunks; if we didn't,
@@ -590,11 +653,12 @@ export default class Uploader {
         AmazonXHR.finish(
           self.auth, self.settings.key, self.uploadId, parts, handler
         );
-      }
+      },
+      () => {},
     );
   }
 
-  notifyChunkUploaded(chunk) {
+  notifyChunkUploaded(chunk: number) {
     var self = this;
     if(self.getState() !== 'processing') {
       return;
@@ -614,11 +678,13 @@ export default class Uploader {
 
     XHR({
       url,
+      headers: {},
+      method: 'GET',
       extraParams: args,
     });
   }
 
-  checkAlreadyUploaded(callback, errorCallback) {
+  checkAlreadyUploaded(callback: () => void, errorCallback: () => void) {
     var self = this;
     var method = 'HEAD';
     var path = `/${self.settings.key}`;
@@ -626,7 +692,7 @@ export default class Uploader {
       // The handler only checks for status code;
       // if the HEAD returns 404, re-upload,
       // else, it returns 200 and finish the upload
-      if(parseInt(e.target.status / 100) === 2) {
+      if(Math.ceil(e.target.status / 100) === 2) {
         log('Already Uploaded');
         callback();
       } else {
@@ -644,53 +710,54 @@ export default class Uploader {
     }
 
 
-    const regionString = util.regionString(self.settings.auth.region);
+    const regionString = utils.regionString(self.auth.region);
     const protocol = location.protocol;
-    const bucket = self.settings.auth.bucket;
+    const bucket = self.auth.bucket;
     var host = `s3${regionString}.amazonaws.com`;
     var url = `${protocol}//${host}/${bucket}/${path}`;
     XHR({
       url,
       method,
+      headers: {},
       loadCallback: innerHandler,
       errorCallback: errorCallback,
     });
   }
 
-  cancel(callback) {
+  cancel(callback: () => void) {
     // Empty all fields, cancel all intervals, abort all xhr's
-    this._chunkXhr.map((chunk) => {
+    this.chunkXhr.map((chunk) => {
       log(`Abort chunk: ${chunk}`);
       chunk.abort();
     });
-    this._intervals = this._intervals || {};
-    for(let key in this._intervals) {
-      if(this._intervals.hasOwnProperty(key)) {
-        clearInterval(this._intervals[key]);
+    this.intervals = this._intervals || {};
+    for(let key in this.intervals) {
+      if(this.intervals.hasOwnProperty(key)) {
+        clearInterval(this.intervals[key]);
       }
     }
     callback = callback || function() {};
     this.setState('canceled');
-    this._chunkXhr = this._chunkXhr || [];
+    this.chunkXhr = this._chunkXhr || [];
     this.settings.onProgress.call(this, 0, 0);
-    this._chunkXhr = null;
-    this._chunks = null;
-    this._uploadingChunks = null;
-    this._loadedChunks = null;
-    this._startFired = false;
+    this.chunkXhr = [];
+    this.chunks = [];
+    this.uploadingChunks = null;
+    this.loadedChunks = null;
+    this.startFired = false;
     this.uploadId = null;
-    this._progress = null;
+    this.progress = {};
     this.setState('waiting'); // wait for a new upload
     callback();
   }
 
-  updateChunks(parts) {
+  updateChunks(parts: Array<any>) {
     var loaded = [];
     var numChunks = Math.ceil(this.file.size / this.settings.chunkSize);
 
     this._initChunks(true);
-    this._uploadingChunks = [];
-    this._loadedChunks = [];
+    this.uploadingChunks = [];
+    this.loadedChunks = [];
 
     parts.map((part) => {
       var partNumber = parseInt(part[0], 10);
@@ -707,113 +774,107 @@ export default class Uploader {
     }
   }
 
-  isSelected() {
+  isSelected(): boolean {
     return !!this.file;
   }
 
-  getState() {
-    return this._state;
+  getState(): string {
+    return this.state;
   }
 
-  setState(state) {
-    this._state = state;
+  setState(state: string): string {
+    this.state = state;
     return state;
   }
 
-  setProgress(chunk, loaded) {
-    this._progress = this._progress || {};
-    this._totalProgress = (this._totalProgress || 0) +
-      loaded - (this._progress[chunk] || 0);
-    this._progress[chunk] = loaded;
+  setProgress(chunk: number, loaded: number) {
+    this.progress = this.progress || {};
+    this.totalProgress = (this.totalProgress || 0) +
+      loaded - (this.progress[chunk] || 0);
+    this.progress[chunk] = loaded;
     this.settings.onChunkProgress.call(
       this, chunk, loaded, this.getChunkSize(chunk));
   }
 
-  getTotalProgress() {
-    return this._totalProgress || 0;
+  getTotalProgress(): number {
+    return this.totalProgress || 0;
   }
 
-  isChunkLoaded(chunk) {
-    this._loadedChunks = this._loadedChunks || [];
-    return this._loadedChunks.indexOf(chunk) !== -1;
+  isChunkLoaded(chunk: number): boolean {
+    this.loadedChunks = this.loadedChunks || [];
+    return this.loadedChunks.indexOf(chunk) !== -1;
   }
 
-  addLoadedChunk(chunk) {
-    this._loadedChunks = this._loadedChunks || [];
-    this._loadedChunks.push(chunk);
+  addLoadedChunk(chunk: number) {
+    this.loadedChunks = this.loadedChunks || [];
+    this.loadedChunks.push(chunk);
     this.setProgress(chunk, this.getChunkSize(chunk));
   }
 
-  getChunkUploading(chunk) {
-    this._uploadingChunks = this._uploadingChunks || [];
-    return this._uploadingChunks.indexOf(chunk) !== -1;
+  getChunkUploading(chunk: number): boolean {
+    this.uploadingChunks = this.uploadingChunks || [];
+    return this.uploadingChunks.indexOf(chunk) !== -1;
   }
 
-  setChunkUploading(chunk, val) {
-    if(typeof val === 'undefined') {
-      val = true;
-    }
-    this._uploadingChunks = this._uploadingChunks || [];
+  setChunkUploading(chunk: number, val: boolean = true) {
+    this.uploadingChunks = this.uploadingChunks || [];
     if(val) {
-      this._uploadingChunks.push(chunk);
+      this.uploadingChunks.push(chunk);
     } else {
       let idx;
       while(true) {
-        idx = this._uploadingChunks.indexOf(chunk);
+        idx = this.uploadingChunks.indexOf(chunk);
         if(idx === -1) {
           break;
         }
-        this._uploadingChunks.splice(idx, 1);
+        this.uploadingChunks.splice(idx, 1);
       }
     }
   }
 
-  _initChunks(force) {
-    if(!this._chunks || force) {
-      this._chunks = [];
+  _initChunks(force: boolean = false) {
+    if(!this.chunks || force) {
+      this.chunks = [];
       var numChunks = Math.ceil(this.file.size / this.settings.chunkSize);
       for(var i = 0; i < numChunks; i++) {
-        this._chunks.push(false);
+        this.chunks.push(false);
       }
     }
   }
 
-  setChunkFinished(chunk, val) {
-    if(typeof val === 'undefined') {
-      val = true;
-    }
+  setChunkFinished(chunk: number, val: boolean = true) {
     this._initChunks();
-    this._chunks[chunk] = !!val;
+    this.chunks[chunk] = !!val;
   }
 
-  getNextChunk(chunk) {
+  getNextChunk(chunk: ?number = null): number {
     this._initChunks();
-    if(chunk && !this._chunks[chunk] && !this.getChunkCploading(chunk)) {
+    if(chunk && !this.chunks[chunk] && !this.getChunkUploading(chunk)) {
       return chunk;
     }
-    for(let i = 0; i < this._chunks.length; i++) {
-      if(!this._chunks[i] && !this.getChunkUploading(i)) {
+    for(let i = 0; i < this.chunks.length; i++) {
+      if(!this.chunks[i] && !this.getChunkUploading(i)) {
         return i;
       }
     }
     return -1;
   }
 
-  uploadFinished() {
+  uploadFinished(): boolean {
     this._initChunks();
-    for(let i = 0; i < this._chunks.length; i++) {
-      if(!this._chunks[i] || this.getChunkUploading(i)) {
+    for(let i = 0; i < this.chunks.length; i++) {
+      if(!this.chunks[i] || this.getChunkUploading(i)) {
         return false;
       }
     }
     return true;
   }
 
-  isLastChunk(chunk) {
+  isLastChunk(chunk: number): boolean {
     return Math.ceil(this.file.size / this.settings.chunkSize) - 1 === chunk;
   }
 
-  getChunkSize(chunk) {
+  getChunkSize(chunk: number): number {
     if(this.isLastChunk(chunk)) {
       return this.file.size % this.settings.chunkSize;
     } else {
@@ -821,35 +882,35 @@ export default class Uploader {
     }
   }
 
-  onChunkProgress(f) {
+  onChunkProgress(f: () => void) {
     this.settings.onChunkProgress = f;
   }
 
-  onProgress(f) {
-    this.settings.onProgressrogress = f;
+  onProgress(f: () => void) {
+    this.settings.onProgress = f;
   }
 
-  onSelect(f) {
+  onSelect(f: () => void) {
     this.settings.onSelect = f;
   }
 
-  onError(f) {
+  onError(f: () => void) {
     this.settings.onError = f;
   }
 
-  onComplete(f) {
+  onComplete(f: () => void) {
     this.settings.onComplete = f;
   }
 
-  onInit(f) {
+  onInit(f: () => void) {
     this.settings.onInit = f;
   }
 
-  onStart(f) {
+  onStart(f: () => void) {
     this.settings.onStart = f;
   }
 
-  onChunkUploaded(f) {
+  onChunkUploaded(f: () => void) {
     this.settings.onChunkUploaded = f;
   }
 }

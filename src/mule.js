@@ -1,3 +1,5 @@
+/* @flow */
+
 import Uploader from './uploader';
 import log from './log';
 
@@ -11,8 +13,10 @@ function muleUploader(settings) {
 
   // For new webkit browsers, the .slice() method is named .webkitSlice()
   // similar for mozilla
-  File.prototype.slice = File.prototype.webkitSlice ||
-    File.prototype.mozSlice || File.prototype.slice;
+  if (typeof File === 'object' && typeof File.prototype === 'object') {
+    File.prototype.slice = File.prototype.webkitSlice ||
+      File.prototype.mozSlice || File.prototype.slice;
+  }
 
   if(typeof navigator !== 'undefined' &&
       navigator.userAgent.indexOf('Firefox') !== -1) {
