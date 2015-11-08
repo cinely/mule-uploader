@@ -42,11 +42,12 @@
   </style>
   <script type="text/javascript">
   var format_size = function(num_bytes) {
-    if(num_bytes <= 1024 * 0.8) {
+    var num_bytes_abs = Math.abs(num_bytes);
+    if(num_bytes_abs <= 1024 * 0.8) {
       return num_bytes + " B";
-    } else if(num_bytes <= 1024 * 1024 * 0.8) {
+    } else if(num_bytes_abs <= 1024 * 1024 * 0.8) {
       return parseInt(num_bytes / 1024, 10) + "." + parseInt(num_bytes / 1024 * 10, 10) % 10 + " KB";
-    } else if(num_bytes <= 1024 * 1024 * 1024 * 0.8) {
+    } else if(num_bytes_abs <= 1024 * 1024 * 1024 * 0.8) {
       return parseInt(num_bytes / 1024 / 1024, 10) + "." + parseInt(num_bytes / 1024 / 1024 * 10, 10) % 10 + " MB";
     } else {
       return parseInt(num_bytes / 1024 / 1024 / 1024, 10) + "." + parseInt(num_bytes / 1024 / 1024 / 1024 * 10, 10) % 10 + " GB";

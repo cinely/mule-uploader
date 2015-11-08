@@ -1,15 +1,15 @@
 /* @flow */
 
-import XHR from './xhr';
-import { AmazonXHR, XHREvent } from './amazonXhr';
+import { XHR, TEvent } from './xhr';
+import { AmazonXHR, TAuth } from './amazonXhr';
 import log from './log';
 import utils from './utils';
 import { KB, MB, GB, SECONDS } from './constants';
 
-type UploaderSettings = {
-  fileInput: any;
-  file: any;
-  autostart: any;
+type TSettings = {
+  fileInput: TFileInput;
+  file: ?File;
+  autostart: bool;
   chunkSize: number;
   maxSize: number;
   numWorkers: number;
@@ -31,24 +31,39 @@ type UploaderSettings = {
   acceptedExtensions: string;
 };
 
+type TPart = [number, string, number];
+
+type TFileEvent = {
+  target: {
+    files: [File];
+  };
+};
+
+type TFileInput = {
+  onchange: (e: TFileEvent, force: boolean) => ?bool;
+  value: string;
+};
+
+type TInterval = number;
+
 export default class Uploader {
-  input: any;
-  file: any;
-  settings: UploaderSettings;
-  auth: any;
-  uploadId: any;
+  input: TFileInput;
+  file: ?File;
+  settings: TSettings;
+  auth: TAuth;
+  uploadId: ?string;
   chunks: Array<boolean>;
   loadedChunks: Array<Number>;
   progress: { [key: number]: number };
   totalProgress: number;
-  loadedChunks: any;
-  uploadingChunks: any;
+  loadedChunks: ?Array<number>;
+  uploadingChunks: ?Array<number>;
   startFired: boolean;
-  intervals: any;
+  intervals: { [key: number]: TInterval };
   chunkXhr: Array<XMLHttpRequest>;
   state: string;
 
-  constructor(settings: UploaderSettings) {
+  constructor(settings: TSettings) {
     let self = this;
 
     settings = settings || {};
@@ -72,7 +87,7 @@ export default class Uploader {
     settings.maxSize = settings.maxSize || 5 * GB; // 5GB
 
     // The number of parallel upload xhr's
-    settings.numWorkers = settings.numWorkers || 4;
+    settings.numWorkers = settings.numWorkers || 1;
 
     // The S3 object key; I recommend to generate this dynamically (e.g.
     // a random string) to avoid unwanted overwrites.
@@ -156,7 +171,7 @@ export default class Uploader {
     }
   }
 
-  uploadFile(file: any, force: boolean) {
+  uploadFile(file: File, force: boolean) {
     var self = this;
 
     // The `onchange` event may be triggered multiple times, so we
@@ -179,10 +194,11 @@ export default class Uploader {
     // but the chance for a false positive is basically zero
     // some browsers don't report the last modified date, so we default
     // to a blank date
-    try {
-      self.file.lastModifiedDate = this.file.lastModifiedDate || new Date(0);
-    } catch(e) {
-      // ...
+    if(self.file) {
+      try {
+        self.file.lastModifiedDate = self.file.lastModifiedDate || new Date(0);
+      } catch(e) {
+      }
     }
 
     if(self.file.size > self.settings.maxSize) {
@@ -272,7 +288,7 @@ export default class Uploader {
           });
         } else {
           // Resume a previus upload
-          if(!force) {
+          if(!force && self.file) {
             // Get the uploaded parts from S3
             AmazonXHR.list(
               self.auth, self.file, self.settings.key,
@@ -315,13 +331,19 @@ export default class Uploader {
       return;
     }
 
+    var file = self.file;
+
+    if(file == null) {
+      return;
+    }
+
     // Make sure we only trigger the start event once
     if(!self._startFired) {
       // Trigger the start event callback
       self.settings.onStart.call(self, self.file);
 
       // And also trigger a progress callback with 0%
-      self.settings.onProgress.call(self, 0, self.file.size);
+      self.settings.onProgress.call(self, 0, file.size);
       self.startFired = true;
     }
 
@@ -331,7 +353,7 @@ export default class Uploader {
     // At this point we may have some chunks already uploaded,
     // So we may trigger a progress callback with the reported progress
     self.settings.onProgress.call(
-      self, self.getTotalProgress(), self.file.size
+      self, self.getTotalProgress(), file.size
     );
 
     // Get the next chunk
@@ -399,7 +421,11 @@ export default class Uploader {
 
     // Get the start and end bytes for the needed chunk
     var start = chunk * length;
-    var end = Math.min(start + length, self.file.size);
+    var file = self.file;
+    if(!file) {
+      return;
+    }
+    var end = Math.min(start + length, file.size);
 
     // We need the last progress time in order to detect hanging
     // uploads
@@ -412,6 +438,9 @@ export default class Uploader {
       var xhr = this;
       // The upload may have finished, so check for that
       self.checkAlreadyUploaded(function() {
+        if(!file) {
+          return;
+        }
         // If already uploaded
         self.setState('finished');
 
@@ -419,7 +448,11 @@ export default class Uploader {
         // self.notifyUploadFinished();
 
         // Trigger a final progress event callback, with 100%
-        self.settings.onProgress.call(self, self.file.size, self.file.size);
+        self.settings.onProgress.call(
+          self,
+          file.size,
+          file.size
+        );
 
         // Also trigger the complete event callback
         self.settings.onComplete.call(self);
@@ -521,10 +554,14 @@ export default class Uploader {
     var progressHandler = function(e) {
       // Set the internal chunk's progress value to the reported amount
       self.setProgress(chunk, e.loaded);
+      var file = self.file;
+      if(!file) {
+        return;
+      }
 
       // Trigger the progress event callback
       self.settings.onProgress.call(
-        self, self.getTotalProgress(), self.file.size
+        self, self.getTotalProgress(), file.size
       );
 
       // Update the last_progress_time for the watcher interval
@@ -533,7 +570,7 @@ export default class Uploader {
 
     AmazonXHR.uploadChunk(
       self.auth, self.settings.key, self.uploadId,
-      chunk, self.file.slice(start, end), {
+      chunk, file.slice(start, end), {
         progressCallback: progressHandler,
         stateChangeCallback: handler,
         errorCallback: errorHandler,
@@ -565,6 +602,10 @@ export default class Uploader {
 
   finishUpload() {
     var self = this;
+    var file = self.file;
+    if(!file) {
+      return;
+    }
 
     // Make sure it's not triggered when not processing (e.g. multiple times)
     if(self.getState() !== 'processing') {
@@ -575,27 +616,33 @@ export default class Uploader {
     self.setState('finishing');
 
     self.settings.onProgress.call(
-      self, self.file.size, self.file.size
+      self, file.size, file.size
     ); // 100% done.
 
 
-    var handler = function(e: XHREvent) {
+    var handler = function(e: TEvent) {
+      if(!file) {
+        return;
+      }
       // I.e. if it's a 2XX response
       if(Math.floor(e.target.status / 100) === 2) {
         log('Finished file.');
         self.setState('finished');
         self.settings.onProgress.call(
-          self, self.file.size, self.file.size
+          self, file.size, file.size
         ); // It's 100% done
 
         // Trigger the complete event callback
         self.settings.onComplete.call(self);
-      } else if(e.target.status === 400 &&
-          e.target.responseText.indexOf('EntityTooSmall') !== -1) {
+      } else if(
+        e.target.status === 400 &&
+        e.target.responseText &&
+        e.target.responseText.indexOf('EntityTooSmall') !== -1
+      ) {
         // An "EntityTooSmall" error means that we missed a chunk
         AmazonXHR.list(
           self.auth,
-          self.file,
+          file,
           self.settings.key,
           self.uploadId,
           self.settings.chunkSize,
@@ -611,6 +658,9 @@ export default class Uploader {
         // 404 = NoSuchUpload = check if already finished
         // If so, start a new upload
         self.cancel(function() {
+          if(!self.file) {
+            return;
+          }
           self.uploadFile(self.file, true);
         });
       } else {
@@ -618,16 +668,16 @@ export default class Uploader {
           handler({
             target: {
               status: 200,
-              responseXML: '',
-              responseText: '',
+              responseText: null,
+              responseXML: null,
             },
           });
         }, function() {
           handler({
             target: {
               status: 404,
-              responseXML: '',
-              responseText: '',
+              responseText: null,
+              responseXML: null,
             },
           });
         });
@@ -635,10 +685,13 @@ export default class Uploader {
     };
 
     AmazonXHR.list(
-      self.auth, self.file, self.settings.key,
+      self.auth, file, self.settings.key,
       self.uploadId, self.settings.chunkSize,
       (parts) => {
-        var numChunks = Math.ceil(self.file.size / self.settings.chunkSize);
+        if(!file) {
+          return;
+        }
+        var numChunks = Math.ceil(file.size / self.settings.chunkSize);
 
         // Check that we uploaded all the chunks; if we didn't,
         // start uploading the missing ones
@@ -666,14 +719,18 @@ export default class Uploader {
     var key = self.settings.key;
     var uploadId = self.uploadId;
     var url = `${self.settings.ajaxBase}/chunk_loaded/`;
+    var file = self.file;
+    if(!file) {
+      return;
+    }
 
     var args = Object.assign(self.settings.extraParams || {}, {
       chunk,
       key,
       uploadId,
-      filename: self.file.name,
-      filesize: self.file.size,
-      lastModified: self.file.lastModifiedDate.valueOf(),
+      filename: file.name,
+      filesize: file.size,
+      lastModified: file.lastModifiedDate.valueOf(),
     });
 
     XHR({
@@ -732,6 +789,7 @@ export default class Uploader {
     });
     this.intervals = this._intervals || {};
     for(let key in this.intervals) {
+      key = parseInt(key, 10);
       if(this.intervals.hasOwnProperty(key)) {
         clearInterval(this.intervals[key]);
       }
@@ -751,19 +809,22 @@ export default class Uploader {
     callback();
   }
 
-  updateChunks(parts: Array<any>) {
-    var loaded = [];
-    var numChunks = Math.ceil(this.file.size / this.settings.chunkSize);
+  updateChunks(parts: Array<TPart>) {
+    var file = this.file;
+    if(!file) {
+      return;
+    }
+    var numChunks = Math.ceil(file.size / this.settings.chunkSize);
 
     this._initChunks(true);
     this.uploadingChunks = [];
     this.loadedChunks = [];
 
-    parts.map((part) => {
-      var partNumber = parseInt(part[0], 10);
+    const loaded = parts.map((part) => {
+      var partNumber = part[0];
       this.addLoadedChunk(partNumber - 1);
       this.setChunkFinished(partNumber - 1);
-      loaded.push(partNumber - 1);
+      return partNumber - 1;
     });
 
     for(let chunkNum = 0; chunkNum < numChunks; chunkNum++) {
@@ -827,15 +888,24 @@ export default class Uploader {
         if(idx === -1) {
           break;
         }
+        if(!this.uploadingChunks) {
+          return;
+        }
         this.uploadingChunks.splice(idx, 1);
       }
     }
   }
 
   _initChunks(force: boolean = false) {
+    var file = this.file;
+    if(!file) {
+      return;
+    }
     if(!this.chunks || force) {
       this.chunks = [];
-      var numChunks = Math.ceil(this.file.size / this.settings.chunkSize);
+      var numChunks = Math.ceil(
+        file.size / this.settings.chunkSize
+      );
       for(var i = 0; i < numChunks; i++) {
         this.chunks.push(false);
       }
@@ -871,11 +941,18 @@ export default class Uploader {
   }
 
   isLastChunk(chunk: number): boolean {
-    return Math.ceil(this.file.size / this.settings.chunkSize) - 1 === chunk;
+    var file = this.file;
+    if(!file) {
+      throw new Error("Please select a file first");
+    }
+    return Math.ceil(file.size / this.settings.chunkSize) - 1 === chunk;
   }
 
   getChunkSize(chunk: number): number {
     if(this.isLastChunk(chunk)) {
+      if(!this.file) {
+        throw new Error("Please select a file first");
+      }
       return this.file.size % this.settings.chunkSize;
     } else {
       return this.settings.chunkSize;

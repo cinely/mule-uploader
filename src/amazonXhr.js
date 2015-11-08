@@ -1,19 +1,33 @@
 /* @flow */
 
-import XHR from './xhr';
+import { XHR, TEvent } from './xhr';
 import utils from './utils';
 import SHA256 from 'crypto-js/sha256';
 import HmacSHA256 from 'crypto-js/hmac-sha256';
 import Hex from 'crypto-js/enc-hex';
 
-type AmazonXHRSettings = {
-  auth: any;
-  headers: any;
-  querystring: any;
+export type TAuth = {
+  bucket: string;
+  region: string;
+  date: Date;
+  accessKey: string;
+  signature: string;
+};
+
+type TQuerystring = { [key: string]: string };
+
+type THeaders = { [key: string]: string };
+
+type TPayload = string | Blob;
+
+type TSettings = {
+  auth: TAuth;
+  headers: THeaders;
+  querystring: TQuerystring;
   key: ?string;
   method: string;
-  payload: any;
-  loadCallback: (event: XHREvent) => void;
+  payload: TPayload;
+  loadCallback: (event: TEvent) => void;
   progressCallback: () => void;
   stateChangeCallback: () => void;
   errorCallback: () => void;
@@ -22,21 +36,13 @@ type AmazonXHRSettings = {
 
 type SendCallback = (() => void);
 
-export type XHREvent = {
-  target: {
-    status: number;
-    responseXML: any;
-    responseText: string;
-  };
-};
-
 export class AmazonXHR {
-  settings: AmazonXHRSettings;
+  settings: TSettings;
   requestDate: Date;
   headers: Object;
   xhr: ?XHR;
 
-  constructor(settings: AmazonXHRSettings) {
+  constructor(settings: TSettings) {
     this.settings = settings;
   };
 
@@ -57,10 +63,13 @@ export class AmazonXHR {
     ].join('');
 
     const encodedDate = utils.uriencode(utils.iso8601(this.requestDate));
-    let querystring = this.settings.querystring;
+    let querystring = {};
+    for(var key in this.settings.querystring ) {
+      querystring[key] = this.settings.querystring[key];
+    }
     querystring['X-Amz-Date'] = encodedDate;
     querystring['X-Amz-Algorithm'] = 'AWS4-HMAC-SHA256';
-    querystring['X-Amz-Expires'] =  86400; // One day
+    querystring['X-Amz-Expires'] = '86400'; // One day
 
     const accessKey = this.settings.auth.accessKey;
     const region = this.settings.auth.region;
@@ -76,7 +85,9 @@ export class AmazonXHR {
       headerKeys.join(';')
     );
 
-    querystring['X-Amz-Signature'] = this.getAuthorizationHeader();
+    querystring['X-Amz-Signature'] = this.getAuthorizationHeader(
+      querystring
+    );
 
     var url = `${location.protocol}//${this.headers.host}/${this.settings.key}`;
     delete this.headers.host;  // keep this header only for hashing
@@ -111,7 +122,7 @@ export class AmazonXHR {
     return this;
   }
 
-  getAuthorizationHeader(): string {
+  getAuthorizationHeader(querystring: TQuerystring): string {
     let header = '';
 
     const headerKeys = Object.keys(this.headers).sort();
@@ -120,14 +131,14 @@ export class AmazonXHR {
       return acc + ';' + val;
     });
 
-    let canonicalRequest = this.getCanonicalRequest();
+    let canonicalRequest = this.getCanonicalRequest(querystring);
     let stringToSign = this.getStringToSign(canonicalRequest, this.requestDate);
     let signature = this.signRequest(stringToSign);
 
     return signature;
   }
 
-  getCanonicalRequest(): string {
+  getCanonicalRequest(querystring: TQuerystring): string {
     let request = `
       ${this.settings.method.toUpperCase()}
       /${utils.uriencode(this.settings.key).replace(/%2F/g, '/')}
@@ -136,9 +147,9 @@ export class AmazonXHR {
 
     // querystring
     request += Object.keys(
-      this.settings.querystring
+      querystring
     ).sort().reduce((acc, key) => {
-      const value = this.settings.querystring[key];
+      const value = querystring[key];
       if(acc) {
         return `${acc}&amp;${utils.uriencode(key)}=${value}`;
       } else {
@@ -274,7 +285,7 @@ export class AmazonXHR {
       progressCallback: () => {},
       stateChangeCallback: () => {},
       timeoutCallback: () => {},
-      loadCallback: function(e: XHREvent) {
+      loadCallback: function(e: TEvent) {
         if(e.target.status === 404) {
           // I.e. the file was already uploaded; start fresh
           if(errorCallback) {
@@ -287,6 +298,9 @@ export class AmazonXHR {
         // [part_number, etag, size] through the given callback
         var xml = e.target.responseXML;
         var parts = [];
+        if(!xml) {
+          return;
+        }
         var xmlParts = xml.getElementsByTagName('Part');
         var numChunks = Math.ceil(file.size / chunkSize);
         let tagContent = function(tag, prop): string {

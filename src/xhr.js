@@ -1,13 +1,27 @@
 /* @flow */
 
-type XHRSettings = {
+type TSettings = {
   headers: { [key: string]: string };
   method: string;
   url: string;
   extraParams?: { [key: string]: string };
 };
 
-export default function XHR(args: XHRSettings): XMLHttpRequest {
+type TXML = {
+  getElementsByTagName: (tag: string) => [TXML];
+  textContent: string;
+};
+
+export type TEvent = {
+  target: {
+    status: number;
+    responseXML: ?TXML;
+    responseText: ?string;
+  };
+};
+
+
+export function XHR(args: TSettings): XMLHttpRequest {
   // The user may or may not pass any headers
   args.headers = args.headers || {};
 
