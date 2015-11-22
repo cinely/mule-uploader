@@ -21,7 +21,7 @@ export type TEvent = {
 };
 
 
-export function XHR(args: TSettings): XMLHttpRequest {
+function XHR(args: TSettings): XMLHttpRequest {
   // The user may or may not pass any headers
   args.headers = args.headers || {};
 
@@ -94,3 +94,5 @@ export function XHR(args: TSettings): XMLHttpRequest {
   }
   return xhr;
 }
+
+export { XHR };

@@ -4,10 +4,10 @@
   "description": "",
   "main": "mule.js",
   "scripts": {
-    "test": "mocha --compilers js:babel-core/register --growl --recursive spec",
-    "lint": "jshint src spec && echo 'all good!' || true",
-    "check": "jscs -e src -e spec && echo 'all good!' || true",
-    "watch-checks": "watch 'mocha --compilers js:babel-core/register --growl --recursive spec && jscs -e src -e spec && jshint src spec && node build.js && echo \"All Good!\"' src",
+    "test": "mocha --compilers js:babel-core/register --recursive -R progress spec",
+    "lint": "eslint --plugin flowtype src spec",
+    "check": "jscs -e src -e spec",
+    "watch-checks": "watch 'npm test && npm run check && npm run lint && flow && node build.js && echo \"All Good!\"' src",
     "build": "node build.js"
   },
   "author": "Gabi Purcaru",
@@ -16,12 +16,16 @@
     "crypto-js": "^3.1.4"
   },
   "devDependencies": {
+    "babel-eslint": "^4.1.5",
+    "babel-jscs": "^2.0.5",
     "babel-runtime": "^5.1.11",
     "babelify": "^6.0.2",
     "browserify": "^9.0.7",
+    "eslint": "^1.10.1",
+    "eslint-plugin-flowtype": "^1.0.0",
+    "flow-bin": "^0.18.1",
     "jasmine": "^2.2.1",
-    "jscs": "^1.12.0",
-    "jshint": "^2.7.0",
+    "jscs": "github:jscs-dev/node-jscs#c5adeba",
     "minifyify": "^6.4.0",
     "mocha": "^2.2.4",
     "mocha-traceur": "",
@@ -29,7 +33,6 @@
     "should": "^5.2.0",
     "sinon": "^1.14.1",
     "traceur": "0.0.89",
-    "watch": "^0.16.0",
-    "flow-bin": "^0.18.1"
+    "watch": "^0.16.0"
   }
 }

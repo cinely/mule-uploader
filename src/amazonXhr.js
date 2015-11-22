@@ -36,7 +36,7 @@ type TSettings = {
 
 type SendCallback = (() => void);
 
-export class AmazonXHR {
+class AmazonXHR {
   settings: TSettings;
   requestDate: Date;
   headers: Object;
@@ -425,3 +425,5 @@ export class AmazonXHR {
     }).send();
   }
 }
+
+export { AmazonXHR };
