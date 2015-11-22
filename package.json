@@ -7,7 +7,7 @@
     "test": "mocha --compilers js:babel-core/register --growl --recursive spec",
     "lint": "jshint src spec && echo 'all good!' || true",
     "check": "jscs -e src -e spec && echo 'all good!' || true",
-    "watch-checks": "watch 'mocha --compilers js:mocha-traceur --growl --recursive spec && jscs -e src -e spec && jshint src spec && node build.js && echo \"All Good!\"' src",
+    "watch-checks": "watch 'mocha --compilers js:babel-core/register --growl --recursive spec && jscs -e src -e spec && jshint src spec && node build.js && echo \"All Good!\"' src",
     "build": "node build.js"
   },
   "author": "Gabi Purcaru",

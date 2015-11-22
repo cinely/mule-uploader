@@ -19,7 +19,9 @@ describe('AmazonXHR', () => {
       warnOnReplace: false,
       warnOnUnregistered: false,
     });
-    mockery.registerMock('./xhr', XHRMock);
+    mockery.registerMock('./xhr', {
+      XHR: XHRMock,
+    });
     AmazonXHR = require('../src/amazonXhr').AmazonXHR;
   });
 

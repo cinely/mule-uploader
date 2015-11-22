@@ -43,7 +43,7 @@ describe('utils.iso8601', () => {
     utils.iso8601(
       new Date("2014-12-12 12:12:12")
     ).should.equal(
-      '20141212T101212Z'
+      '20141212T121212Z'
     );
   });
 });
