@@ -131,17 +131,39 @@ export class AmazonXHR {
       return acc + ';' + val;
     });
 
-    let canonicalRequest = this.getCanonicalRequest(querystring);
-    let stringToSign = this.getStringToSign(canonicalRequest, this.requestDate);
-    let signature = this.signRequest(stringToSign);
+    if(!this.settings.key) {
+      throw new Error("Key undefined");
+    }
+
+    let canonicalRequest = this.getCanonicalRequest({
+      method: this.settings.method,
+      key: this.settings.key,
+      headers: this.headers,
+      querystring,
+    });
+    let stringToSign = this.getStringToSign({
+      canonicalRequest,
+      requestDate: this.requestDate,
+      region: this.settings.auth.region,
+      signature: this.settings.auth.signature,
+    });
+    let signature = this.signRequest({
+      stringToSign,
+      signature: this.settings.auth.signature,
+    });
 
     return signature;
   }
 
-  getCanonicalRequest(querystring: TQuerystring): string {
+  getCanonicalRequest({ method, key, querystring, headers }: {
+    method: string,
+    key: string,
+    querystring: TQuerystring,
+    headers: THeaders,
+  }): string {
     let request = `
-      ${this.settings.method.toUpperCase()}
-      /${utils.uriencode(this.settings.key).replace(/%2F/g, '/')}
+      ${method.toUpperCase()}
+      /${utils.uriencode(key).replace(/%2F/g, '/')}
     `;
     request = request.trim().replace(/^\s+/gm, '') + '\n';
 
@@ -159,9 +181,9 @@ export class AmazonXHR {
     request += '\n';
 
     // headers
-    const headerKeys = Object.keys(this.headers).sort();
+    const headerKeys = Object.keys(headers).sort();
     request += headerKeys.reduce((acc, key) => {
-      const value = this.headers[key];
+      const value = headers[key];
       if(acc) {
         return `${acc}\n${key.toLowerCase()}:${value.trim()}`;
       } else {
@@ -186,26 +208,39 @@ export class AmazonXHR {
     return request;
   }
 
-  getStringToSign(canonicalRequest: string, time: Date): string {
+  getStringToSign({
+    canonicalRequest,
+    requestDate,
+    region,
+    signature
+  }: {
+    canonicalRequest: string,
+    requestDate: Date,
+    region: string,
+    signature: string,
+  }): string {
     return `
       AWS4-HMAC-SHA256
-      ${utils.iso8601(time)}
+      ${utils.iso8601(requestDate)}
       ${
         [
-          time.getUTCFullYear(),
-          utils.zfill(time.getUTCMonth() + 1, 2),
-          utils.zfill(time.getUTCDate(), 2),
-          '/' + this.settings.auth.region + '/s3/aws4_request\n',
+          requestDate.getUTCFullYear(),
+          utils.zfill(requestDate.getUTCMonth() + 1, 2),
+          utils.zfill(requestDate.getUTCDate(), 2),
+          '/' + region + '/s3/aws4_request\n',
         ].join('')
       }
       ${SHA256(canonicalRequest.replace(/&amp;/g, '&')).toString()}
     `.trim().replace(/^\s+/gm, '');
   }
 
-  signRequest(stringToSign: string): string {
+  signRequest({stringToSign, signature}: {
+    stringToSign: string,
+    signature: string,
+  }): string {
     var res = HmacSHA256(
       stringToSign,
-      Hex.parse(this.settings.auth.signature)
+      Hex.parse(signature),
     ).toString();
     return res;
   }
