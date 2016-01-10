@@ -319,6 +319,7 @@
             var args = utils.extend_object(u.settings.extra_params || {}, {
                 filename: file.name,
                 filesize: file.size,
+                content_type: file.type,
                 last_modified: file.lastModifiedDate.valueOf()
             });
 
