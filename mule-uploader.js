@@ -344,6 +344,7 @@
             XHR({
                 url: u.settings.ajax_base + "/signing_key/",
                 extra_params: args,
+                headers: u.settings.headers, //allow headers to be passed in from settings
                 load_callback: function(e) {
                     var json = JSON.parse(e.target.responseText);
                     json.date = new Date(json.date);
