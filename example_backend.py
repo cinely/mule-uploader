@@ -92,7 +92,7 @@ def signing_key():
     last_modified = request.args['last_modified']
 
     data = {
-        "date": date.isoformat(),
+        "date": date.isoformat() + 'Z',
         "signature": key,
         "access_key": AWS_ACCESS_KEY,
         "region": AWS_REGION,
