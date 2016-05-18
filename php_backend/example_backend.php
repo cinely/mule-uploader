@@ -157,6 +157,7 @@ class Backend {
 
         if($action == 'signing_key') {
             $date = new DateTime('NOW');
+            $date->setTimeZone(new DateTimeZone('UTC'));
             $signature = $this->get_signature($date);
 
             $filename = $_GET['filename'];
