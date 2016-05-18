@@ -1,0 +1,30 @@
+{
+  "name": "mule-uploader",
+  "main": "mule-uploader.js",
+  "version": "1.0.0",
+  "homepage": "https://github.com/cinely/mule-uploader",
+  "authors": [
+    "gabipurcaru"
+  ],
+  "description": "Subborn HTML5 File Uploader for Amazon S3",
+  "moduleType": [
+    "globals"
+  ],
+  "keywords": [
+    "uploader",
+    "mule-uploader",
+    "S3",
+    "uploader",
+    "Amazon",
+    "S3"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "components",
+    "test",
+    "tests"
+  ]
+}
