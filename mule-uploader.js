@@ -721,6 +721,7 @@
                 upload_id: upload_id,
                 filename: u.file.name,
                 filesize: u.file.size,
+                content_type: u.file.type,
                 last_modified: u.file.lastModifiedDate.valueOf()
             });
 
