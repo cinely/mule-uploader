@@ -337,7 +337,7 @@
                 extra_params: args,
                 load_callback: function(e) {
                     var json = JSON.parse(e.target.responseText);
-                    var utc_suffix = /Z$/.test(json.date.toString()) ? '' : 'Z';
+                    var utc_suffix = /Z|\+00:?00$/.test(json.date.toString()) ? '' : 'Z';
                     json.date = new Date(json.date + utc_suffix);
                     u.auth = json;
                     u.upload_id = json.upload_id;
