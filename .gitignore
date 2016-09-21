@@ -3,3 +3,4 @@
 *.pyc
 *.pyo
 *.db
+node_modules/*
