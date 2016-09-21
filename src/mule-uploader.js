@@ -1005,7 +1005,7 @@
     AmazonXHR.list = function(auth, file, key, upload_id, chunk_size, callback, error_callback, marker) {
         var querystring = {"uploadId": upload_id};
         if(marker) {
-            querystring['part-number-marker'] = marker;
+            querystring['part-number​-marker'] = marker;
         }
         return new AmazonXHR({
             auth: auth,
