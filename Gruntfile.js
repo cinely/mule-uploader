@@ -5,11 +5,11 @@ module.exports = function(grunt) {
   grunt.initConfig({
     // Metadata.
     pkg: grunt.file.readJSON('package.json'),
-    banner: '/*! <%= pkg.title || pkg.name %> - v<%= pkg.version %> - ' +
+    banner: '/*! <%= pkg.name %> - v<%= pkg.version %> - ' +
       '<%= grunt.template.today("yyyy-mm-dd") %>\n' +
       '<%= pkg.homepage ? "* " + pkg.homepage + "\\n" : "" %>' +
-      '* Copyright (c) <%= grunt.template.today("yyyy") %> <%= pkg.author.name %>;' +
-      ' Licensed <%= _.pluck(pkg.licenses, "type").join(", ") %> */\n',
+      '* Copyright (c) <%= grunt.template.today("yyyy") %> <%= pkg.authors.join(", ") %>;' +
+      ' Licensed <%= pkg.license %> */\n',
     // Task configuration.
     concat: {
       options: {
@@ -17,7 +17,7 @@ module.exports = function(grunt) {
         stripBanners: true
       },
       dist: {
-        src: ['lib/<%= pkg.name %>.js'],
+        src: ['<%= pkg.main %>'],
         dest: 'dist/<%= pkg.name %>.js'
       }
     },
@@ -26,7 +26,7 @@ module.exports = function(grunt) {
         banner: '<%= banner %>'
       },
       dist: {
-        src: '<%= concat.dist.dest %>',
+        src: 'dist/<%= pkg.name %>.js',
         dest: 'dist/<%= pkg.name %>.min.js'
       }
     },
@@ -46,12 +46,7 @@ module.exports = function(grunt) {
         browser: true,
         globals: {}
       },
-      gruntfile: {
-        src: 'Gruntfile.js'
-      },
-      lib_test: {
-        src: ['lib/**/*.js', 'test/**/*.js']
-      }
+      all: ['Gruntfile.js']
     },
     qunit: {
       files: ['test/**/*.html']
@@ -65,6 +60,9 @@ module.exports = function(grunt) {
         files: '<%= jshint.lib_test.src %>',
         tasks: ['jshint:lib_test', 'qunit']
       }
+    },
+    bower_version: {
+      update: []
     }
   });
 
@@ -74,8 +72,10 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-qunit');
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-bower-version');
+
 
   // Default task.
-  grunt.registerTask('default', ['jshint', 'qunit', 'concat', 'uglify']);
+  grunt.registerTask('default', ['concat', 'uglify', 'bower_version']);
 
 };
