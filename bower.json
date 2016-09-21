@@ -1,7 +1,7 @@
 {
   "name": "mule-uploader",
   "main": "mule-uploader.js",
-  "version": "1.1.3",
+  "version": "1.2.0",
   "homepage": "https://github.com/cinely/mule-uploader",
   "authors": [
     "gabipurcaru"
