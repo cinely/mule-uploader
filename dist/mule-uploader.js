@@ -1,6 +1,6 @@
-/*! mule-uploader - v1.2.0 - 2016-09-21
+/*! mule-uploader - v1.2.0 - 2016-09-28
 * https://github.com/cinely/mule-uploader
-* Copyright (c) 2016 gabipurcaru; Licensed MIT */
+* Copyright (c) 2016 Gabi Purcaru; Licensed MIT */
 (function(namespace){
     /*
     CryptoJS v3.1.2
@@ -999,7 +999,7 @@
     AmazonXHR.list = function(auth, file, key, upload_id, chunk_size, callback, error_callback, marker) {
         var querystring = {"uploadId": upload_id};
         if(marker) {
-            querystring['part-number​-marker'] = marker;
+            querystring['part-number-marker'] = marker;
         }
         return new AmazonXHR({
             auth: auth,
