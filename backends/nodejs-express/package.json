@@ -1,0 +1,17 @@
+{
+  "name": "mule-uploader-server",
+  "version": "0.0.1",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+
+  },
+  "author": "Alin Purcaru",
+  "license": "GPL",
+  "dependencies": {
+    "crypto-js": "^3.1.7",
+    "express": "^4.14.0",
+    "mustache": "^2.2.1",
+    "sqlite3": "^3.1.6"
+  }
+}
