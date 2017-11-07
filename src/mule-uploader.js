@@ -713,7 +713,7 @@
         Uploader.prototype.check_already_uploaded = function(callback, error_callback) {
             var u = this;
             var method = "HEAD";
-            var path = "/" + u.settings.key;
+            var path = u.settings.key;
             var inner_handler = function(e) {
                 // the handler only checks for status code;
                 // if the HEAD returns 404, re-upload,
