@@ -1,3 +1,6 @@
+const BACKEND_SECURITY_MODE_SESSION = 'session'
+const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri'
+
 class Upload {
 	constructor(options, defaultOptions) {
 		this.options = Object.assign({}, defaultOptions, options);
@@ -6,16 +9,30 @@ class Upload {
 		}
 		// console.debug(this.options, this.fetchOptions)
 	}
-	setFile(file) {
-		this.fileName = 'test.mule'
+	loadFile(file) {
+		if (!file.name || !file.size)
+			throw "not able to load file"
+		this.file = file;
+		console.debug('file loaded', file);
 	}
-	upload() {
-
+	async run() {
+		if (!this.file)
+			throw "file not loaded";
+	}
+	async _futch(url, opts={}, onProgress) {
+		return new Promise( (resolve, reject)=>{
+			let xhr = new XMLHttpRequest();
+			xhr.open(opts.method || 'get', url);
+			for (let k in opts.headers||{})
+				xhr.setRequestHeader(k, opts.headers[k]);
+			xhr.onload = e => resolve(e.target.responseText);
+			xhr.onerror = reject;
+			if (xhr.upload && this.options.progressCallback)
+				xhr.upload.onprogress = this.options.progressCallback; // event.loaded / event.total * 100 ; //event.lengthComputable
+			xhr.send(opts.body);
+		});
 	}
 }
-
-const BACKEND_SECURITY_MODE_SESSION = 'session'
-const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri'
 
 export class GCSUpload extends Upload {
 	constructor(options) {
@@ -24,27 +41,37 @@ export class GCSUpload extends Upload {
 			backendSecurityMode: BACKEND_SECURITY_MODE_SESSION
 			});
 	}
-	async upload() {
+	async run() {
+		super.run();
 		if ( this.options.backendSecurityMode != BACKEND_SECURITY_MODE_SESSION )
 			throw "backend security mode not implemented";
 		try {
-			await this._getResumableSessionURI();
+			this.session = await this._getResumableSessionURI();
+			console.log('session received', this.session);
+			await this._uploadTest();
 		} catch(error) {
 			throw `Not able to upload, ${error}`;
 		}
 	}
+	async _uploadTest() {
+		return this._futch(this.session.uploadURI, {
+			method: 'PUT',
+			body: this.file,
+			headers: {'Content-Length': this.file.size}
+		});
+	}
 	async _getResumableSessionURI() {
-		var parameters = new URLSearchParams();
-		parameters.append("fileName", this.fileName)
+		let parameters = new URLSearchParams();
+		parameters.append("fileName", this.file.name)
 
-		var request = new Request(this.options.backendURL + '?' + parameters.toString(), {
+		let request = new Request(this.options.backendURL + '?' + parameters.toString(), {
 			method: 'GET',
 			cache: 'no-store'
 		});
 
 		let response = await fetch(request, this.fetchOptions);
-		console.debug('response', response);
 		if (response.status < 200 || response.status > 299)
 			throw `error while getting signed API call: ${response.statusText}`;
+		return response.json();
 	}
 };

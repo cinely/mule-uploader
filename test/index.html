@@ -1,13 +1,23 @@
 <html>
   <head><title>MuleUploader test page</title></head>
   <body>
+    <input id="file" type="file">
     <script src="MuleUploader.js"></script>
     <script>
-    	var gcs = new muleUploader.GCSUpload({
-    		backendFetchMode: 'cors'
-    	})
-    	gcs.setFile()
-    	gcs.upload()
-	</script>
+      function onProgress(event) {
+        console.log('onProgress', event)
+      }
+
+      var gcs = new muleUploader.GCSUpload({
+        backendFetchMode: 'cors',
+        progressCallback: onProgress
+      });
+
+      var domFile = document.getElementById("file")
+      domFile.addEventListener("change", function (event) {
+        gcs.loadFile(this.files[0])
+        gcs.run()
+      });
+  </script>
   </body>
 </html>
