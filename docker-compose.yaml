@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  webpack-dev-server:
+    build: .
+    command: webpack-dev-server --mode development --host 0.0.0.0
+    ports:
+      - 8080:8080
+    volumes:
+      - ./src/MuleUploader.js:/module/src/MuleUploader.js:ro
+      - ./dist/MuleUploader.js:/module/dist/MuleUploader.js
+  backend-python:
+    build: backends/python/
+    ports:
+      - 8081:80

@@ -1,0 +1,13 @@
+<html>
+  <head><title>MuleUploader test page</title></head>
+  <body>
+    <script src="MuleUploader.js"></script>
+    <script>
+    	var gcs = new muleUploader.GCSUpload({
+    		backendFetchMode: 'cors'
+    	})
+    	gcs.setFile()
+    	gcs.upload()
+	</script>
+  </body>
+</html>

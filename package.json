@@ -1,8 +1,9 @@
 {
   "name": "mule-uploader",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "authors": [
-    "Gabi Purcaru"
+    "Gabi Purcaru",
+    "Alexandre Buisine"
   ],
   "homepage": "https://github.com/cinely/mule-uploader",
   "description": "Subborn HTML5 File Uploader for Amazon S3",
@@ -11,7 +12,8 @@
     "type": "git",
     "url": "https://github.com/cinely/mule-uploader"
   },
-  "main": "./src/mule-uploader.js",
+  "main": "dist/MuleUploader.js",
+  "module": "src/MuleUploader.js",
   "engines": {
     "node": ">= 0.10.0"
   },
@@ -20,9 +22,11 @@
   },
   "devDependencies": {
     "webpack": "^4.29.0",
-    "webpack-cli": "^3.2.1"
+    "webpack-cli": "^3.2.1",
+    "webpack-dev-server": "^3.1.14"
   },
   "scripts": {
-    "build": "webpack"
+    "start": "webpack-dev-server --mode development",
+    "build": "webpack --mode production"
   }
 }

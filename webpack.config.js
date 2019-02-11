@@ -1,9 +1,12 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/mule-uploader.js',
+  entry: './src/MuleUploader.js',
   output: {
-    filename: 'mule-uploader.js',
-    path: path.resolve(__dirname, 'dist')
+    filename: 'MuleUploader.js',
+    path: path.resolve(__dirname, 'dist'),
+    library: 'muleUploader',
+    libraryTarget: 'umd'
+    // libraryExport: 'default'
   }
 };
