@@ -57,12 +57,13 @@ export class GCSUpload extends Upload {
 		return this._futch(this.session.uploadURI, {
 			method: 'PUT',
 			body: this.file,
-			headers: {'Content-Length': this.file.size}
+			headers: {'Content-Type': this.file.type != "" && this.file.type || 'application/octet-stream'}
 		});
 	}
 	async _getResumableSessionURI() {
 		let parameters = new URLSearchParams();
 		parameters.append("fileName", this.file.name)
+		parameters.append("fileSize", this.file.size)
 
 		let request = new Request(this.options.backendURL + '?' + parameters.toString(), {
 			method: 'GET',
