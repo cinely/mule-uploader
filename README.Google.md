@@ -24,14 +24,15 @@ Alternatively, you can pass an options object in order to fine tune the uploader
 ```
 {
 	backendURL: "http://localhost:8081/signature",	// the backend url
-	backendFetchMode: 'cors',						// cors, no-cors, same-origin, navigate
-	backendSecurityMode: 'session',					// session, signed-uri
-	parallelChunkUploads: 1,						// how many chunks will be uploaded in parallel
-	progressCallback: null,							// a function that will be called with progress status
+	backendFetchMode: 'cors',			// cors, no-cors, same-origin, navigate
+	backendSecurityMode: 'session',			// session, signed-uri
+	parallelChunkUploads: 1,			// how many chunks will be uploaded in parallel
+	progressCallback: null,				// a function that will be called with progress status
 }
 ```
 
 A demo of the browser side javascript implementation is available [here](test/index.html).
+
 A demo of the server side authorization implementation is available [here](backends/python/main.py).
 
 # Developers
