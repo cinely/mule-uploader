@@ -5,7 +5,7 @@ class Upload {
 	constructor(options, defaultOptions) {
 		this.options = Object.assign({}, defaultOptions, options);
 		this.fetchOptions = {
-			mode: this.options.backendFetchMode || 'same-origin'
+			mode: this.options.backendFetchMode || 'cors'
 		}
 		// console.debug(this.options, this.fetchOptions)
 	}
