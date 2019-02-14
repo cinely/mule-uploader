@@ -23,7 +23,7 @@ def prepareMessage(object):
 
 def application(environ, start_response):
 	parameters = urllib.parse.parse_qs(environ['QUERY_STRING'])
-	if not 'fileName' in parameters:
+	if not 'fileName' in parameters or not 'fileSize' in parameters:
 		start_response('400', RESPONSE_HEADERS)
 		return [prepareMessage(None)]
 	try:
@@ -36,9 +36,19 @@ def application(environ, start_response):
 		authed_session = AuthorizedSession(scoped_credentials)
 		args = {
 			'uploadType': 'resumable',
-			'name': parameters['fileName']
+			'name': parameters['fileName'][0],
 			}
-		response = authed_session.post("https://www.googleapis.com/upload/storage/v1/b/%s/o"%BUCKET, params = args, verify = True)
+		headers = {
+			'Origin': 'http://localhost:8080',
+			'X-Upload-Content-Length': parameters['fileSize'][0]
+		}
+		# X-Upload-Content-Type. Optional. Set to the MIME type of the file data, which is transferred in subsequent requests. If the MIME type of the data is not specified in metadata or through this header, the object is served as application/octet-stream.
+		# X-Upload-Content-Length. Optional. Set to the number of bytes of file data, which will be transferred in subsequent requests.
+		# Content-Type. Required if you have metadata for the file. Set to application/json; charset=UTF-8.
+		# Content-Length. Required unless you are using chunked transfer encoding. Set to the number of bytes in the body of this initial request.
+		# Origin, if you have enabled Cross-Origin Resource Sharing. You must also use this header in subsequent upload requests.
+
+		response = authed_session.post("https://www.googleapis.com/upload/storage/v1/b/%s/o"%BUCKET, params = args, headers = headers, verify = True)
 		print(response.headers)
 
 		if ( response.status_code < 200 or response.status_code > 299 ):
