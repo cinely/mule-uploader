@@ -1,5 +1,7 @@
-const BACKEND_SECURITY_MODE_SESSION = 'session'
-const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri'
+const BACKEND_SECURITY_MODE_SESSION = 'session';
+const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri';
+
+console.debug = process.env.DEBUG && console.debug || function() {};
 
 class Upload {
 	constructor(options, defaultOptions) {
@@ -18,9 +20,10 @@ class Upload {
 		this.file = file;
 		let chunkCount = Math.ceil(this.file.size / this.options.chunkSize);
 		this.chunks = [...Array(chunkCount).keys()];
+		this.chunksProgress = [...Array(chunkCount).values()];
 		console.debug('File loaded', {
 			size: this.file.size,
-			chunks: this.chunks
+			chunks: this.chunks,
 		});
 	}
 	async run() {
