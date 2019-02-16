@@ -5,4 +5,4 @@ User guide for the Google Cloud Storage implementation is available [here](READM
 # For developers
 
 ## Build the library
-`docker-compose -f docker-compose.dist.yaml up`
+`docker-compose -f docker-compose.dist.yaml up --build`
