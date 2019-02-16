@@ -16,6 +16,9 @@ module.exports = (env, argv) => {
 				VERSION: require("./package.json").version,
 				DEBUG: argv.mode === 'development'
 			})
-		]		
+		],
+		devServer: {
+			publicPath: '/dist/'
+		}		
 	}
 };

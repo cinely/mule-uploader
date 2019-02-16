@@ -2,7 +2,7 @@
   <head><title>MuleUploader test page</title></head>
   <body>
     <input id="file" type="file">
-    <script src="MuleUploader.js"></script>
+    <script src="../dist/MuleUploader.js"></script>
     <script>
       function onProgress(event) {
         console.log('onProgress', event)
@@ -15,7 +15,7 @@
       var domFile = document.getElementById("file")
       domFile.addEventListener("change", function (event) {
         gcs.loadFile(this.files[0])
-        gcs.run()
+        //gcs.run()
       });
   </script>
   </body>
