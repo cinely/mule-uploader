@@ -3,6 +3,7 @@ const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri'
 
 class Upload {
 	constructor(options, defaultOptions) {
+		console.log(`muleUploader ${this.constructor.name} ${process.env.VERSION} ${process.env.DEBUG && 'DEBUG' || ''}`);
 		this.options = Object.assign({
 			chunkSize: 50*1024*1024
 			}, defaultOptions, options);
