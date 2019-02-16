@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  webpack:
+    build: .
+    command: npm run build
+    volumes:
+      - ./src/MuleUploader.js:/module/src/MuleUploader.js:ro
+      - ./dist/MuleUploader.js:/module/dist/MuleUploader.js
