@@ -1,10 +1,4 @@
-*.swp
-*.swo
-*.pyc
-*.pyo
-*.db
 node_modules/*
-bower_components/*
 npm-debug.log
 \.DS_Store
 **/*.chls
