@@ -51,7 +51,20 @@ class Upload {
 				'Content-Range': contentRange
 				// 'Content-Length': contentLength not authorized and computed automatically
 			}
-		});
+		}, this._onChunkProgress.bind(this, chunk));
+	}
+	_onChunkProgress(chunk, event) {
+		if ( event.loaded )
+			this.chunksProgress[chunk] = event.loaded;
+		this._onProgress();
+	}
+	_onProgress() {
+		let fileProgress = 0;
+		for (let chunkProgress of this.chunksProgress) {
+			fileProgress += chunkProgress || 0;
+		}
+		console.debug('_onProgress', fileProgress, this.file.size);
+		this.options.progressCallback && this.options.progressCallback(fileProgress, this.file.size);
 	}
 	_getNextChunk() {
 		return this.chunks.shift();
@@ -64,8 +77,8 @@ class Upload {
 				xhr.setRequestHeader(k, opts.headers[k]);
 			xhr.onload = e => resolve(e.target.responseText);
 			xhr.onerror = reject;
-			if (xhr.upload && this.options.progressCallback)
-				xhr.upload.onprogress = this.options.progressCallback; // event.loaded / event.total * 100 ; //event.lengthComputable
+			if (xhr.upload && onProgress)
+				xhr.upload.onprogress = onProgress; // event.loaded / event.total * 100 ; //event.lengthComputable
 			xhr.send(opts.body);
 		});
 	}

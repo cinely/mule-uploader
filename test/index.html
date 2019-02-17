@@ -4,8 +4,8 @@
     <input id="file" type="file">
     <script src="../dist/MuleUploader.js"></script>
     <script>
-      function onProgress(event) {
-        console.log('onProgress', event)
+      function onProgress(uploadedSize, fullSize) {
+        console.log('onProgress', uploadedSize, fullSize);
       }
 
       var gcs = new muleUploader.GCSUpload({
