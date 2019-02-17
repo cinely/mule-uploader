@@ -6,7 +6,11 @@ This is an ES7 javascript implementation of the Google Cloud Storage API which r
 It implements multiple parallel chunk uploads in order to boost performance.
 
 # User guide
-The muleUploader library is available as an UMD package in `dist/MuleUploader.js`.
+In order to **control** which files can be uploaded by the browser to a google cloud storage bucket **without** giving a full access, the library will request a signed identifier from the **backend**.
+
+It is under the responsibility of the backend to make all needed verifications and then sign (or not) an identifier which is then provided the the library, enable subsequent uploads.
+
+The muleUploader library is available as an [UMD package](https://github.com/umdjs/umd) in `dist/MuleUploader.js`.
 
 The library is exposed under multiple module definitions, allowing it to work with CommonJS, AMD and as global variable.
 
