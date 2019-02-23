@@ -30,7 +30,7 @@ Alternatively, you can pass an options object in order to fine tune the uploader
 	backendURL: "http://localhost:8081/signature",	// the backend url
 	backendFetchMode: 'cors',			// cors, no-cors, same-origin, navigate
 	backendSecurityMode: 'session',			// session, signed-uri
-	parallelChunkUploads: 1,			// how many chunks will be uploaded in parallel
+	parallelUploads: 1,					// how many parallel uploads
 	progressCallback: null,				// a function that will be called with progress status
 }
 ```
