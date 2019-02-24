@@ -214,10 +214,14 @@ class FileUpload {
 				payload: this.file.slice(i * objectSize, Math.min(objectSize * (i + 1), this.file.size))
 			});
 		}
+		this.objectsComposition = this.storageObjects.reduce((accumulator, value) => {
+			accumulator.push({'name': value.fileName}); return accumulator},
+			[])
 		console.debug('Storage objects computation', {
 			objectsCount: this.storageObjectsCount,
 			objectSize: objectSize,
-			objects: this.storageObjects
+			objects: this.storageObjects,
+			objectsComposition: this.objectsComposition
 		});
 	}
 	_getNextStorageObject() {
@@ -258,12 +262,12 @@ class FileUpload {
 	}
 	async _composeStorageObjects() {
 		console.debug('composing objects');
-		// let parameters = new URLSearchParams();
-		// parameters.append("fileName", this.storageObject.fileName);
-		// parameters.append("fileSize", this.storageObject.payload.size);
+		let parameters = new URLSearchParams();
+		parameters.append("fileName", this.file.name);
 
-		let request = new Request(this.options.composeAuthorizationURL, {
-			method: 'GET',
+		let request = new Request(this.options.composeAuthorizationURL + '?' + parameters.toString(), {
+			method: 'POST',
+    		body: JSON.stringify(this.objectsComposition),
 			cache: 'no-store'
 		});
 

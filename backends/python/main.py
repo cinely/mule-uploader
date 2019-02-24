@@ -4,71 +4,120 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import AuthorizedSession
 from wsgiref.simple_server import make_server
 
-RESPONSE_HEADERS = [
-	('Content-Type','application/json'),
-	('Access-Control-Allow-Origin', '*')
-	]
-
+GOOGLE_CLOUD_AUTHENTICATION_FILE = 'key.json'
 GOOGLE_CLOUD_SCOPE = 'https://www.googleapis.com/auth/cloud-platform'
+GOOGLE_CLOUD_STORAGE_COMPOSE_REQUEST_KIND = 'storage#composeRequest'
 
 BUCKET="arched-album-228205"
 
 HEADER_UPLOAD_ID = 'X-GUploader-UploadID'
 HEADER_UPLOAD_URI = 'Location'
 
-def prepareMessage(object):
-	serialized = json.dumps(object)
-	return serialized.encode('utf-8')
+def buildResponse(message, start_response):
+	serialized	= json.dumps(message, separators=(',', ':'))
+	encoded		= bytes(serialized, 'utf-8')
+	headers		= [
+		('Content-Type', 'application/json'),
+		('Access-Control-Allow-Origin', '*')
+		]
+	start_response("200 OK", headers)
+	return [encoded]
+
+def buildErrorResponse(error, start_response):
+	headers = [
+		('Content-Type','text/plain'),
+		('Access-Control-Allow-Origin', '*')
+		]
+	start_response(bytes(error, 'utf-8'), headers)
+	return []
+
+def getAuthorizedSession():
+	try:
+		credentials = service_account.Credentials.from_service_account_file(GOOGLE_CLOUD_AUTHENTICATION_FILE)
+		scoped_credentials = credentials.with_scopes([GOOGLE_CLOUD_SCOPE])
+		return AuthorizedSession(scoped_credentials)
+	except FileNotFoundError:
+		raise Exception("unreadable authentication file"%GOOGLE_CLOUD_AUTHENTICATION_FILE)
 
 def composeAuthorization(environ, start_response):
-	headers = [('Content-type', 'text/plain; charset=utf-8')]
-	start_response('500 ', headers)
-	return [b'not implemented']
+	parameters = urllib.parse.parse_qs(environ['QUERY_STRING'])
+	if not 'fileName' in parameters:
+		return buildErrorResponse("400 missing parameters", start_response)
+
+	try:
+		request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+	except ValueError:
+		return buildErrorResponse("400 missing content length", start_response)
+
+	request_body = environ['wsgi.input'].read(request_body_size)
+	objectsComposition = json.loads(request_body)
+
+	try:
+		session = getAuthorizedSession()
+	except Exception:
+		return buildErrorResponse("500 authentication failure", start_response)
+
+	body = {
+		'sourceObjects': objectsComposition
+		}
+	headers = {
+		'Accept': 'application/json',
+		'Content-Type': 'application/json'
+	}
+
+	try:
+		response = session.post("https://www.googleapis.com/storage/v1/b/%s/o/%s/compose"%(BUCKET, parameters['fileName'][0]), data=json.dumps(body), headers=headers)
+		if ( response.status_code < 200 or response.status_code > 299 ):
+			raise Exception("error while authorizing compose", response.status_code, response.reason)
+		objectResource = response.json()
+
+		for storageObject in objectsComposition:
+			response = session.delete("https://www.googleapis.com/storage/v1/b/%s/o/%s"%(BUCKET, storageObject['name']))
+			if ( response.status_code < 200 or response.status_code > 299 ):
+				raise Exception("error while deleting storage object", response.status_code, response.reason)
+
+		return buildResponse(objectResource, start_response)
+	except Exception as error:
+		return buildErrorResponse("500 compositing failure", start_response)
 
 def uploadAuthorization(environ, start_response):
 	parameters = urllib.parse.parse_qs(environ['QUERY_STRING'])
 	if not 'fileName' in parameters or not 'fileSize' in parameters:
-		start_response('400 missing parameters', RESPONSE_HEADERS)
-		return [prepareMessage("missing parameters")]
+		return buildErrorResponse("400 missing parameters", start_response)
+
 	try:
-		credentials = service_account.Credentials.from_service_account_file('key.json')
-		scoped_credentials = credentials.with_scopes([GOOGLE_CLOUD_SCOPE])
+		session = getAuthorizedSession()
+	except Exception:
+		return buildErrorResponse("500 authentication failure", start_response)
 
-		# request = google.auth.transport.requests.Request()
-		# credentials.refresh(request)
-
-		authed_session = AuthorizedSession(scoped_credentials)
-		args = {
-			'uploadType': 'resumable',
-			'name': parameters['fileName'][0],
-			}
-		headers = {
-			'Origin': 'http://localhost:8080',
-			'X-Upload-Content-Length': parameters['fileSize'][0]
+	args = {
+		'uploadType': 'resumable',
+		'name': parameters['fileName'][0],
 		}
-		# X-Upload-Content-Type. Optional. Set to the MIME type of the file data, which is transferred in subsequent requests. If the MIME type of the data is not specified in metadata or through this header, the object is served as application/octet-stream.
-		# X-Upload-Content-Length. Optional. Set to the number of bytes of file data, which will be transferred in subsequent requests.
-		# Content-Type. Required if you have metadata for the file. Set to application/json; charset=UTF-8.
-		# Content-Length. Required unless you are using chunked transfer encoding. Set to the number of bytes in the body of this initial request.
-		# Origin, if you have enabled Cross-Origin Resource Sharing. You must also use this header in subsequent upload requests.
+	headers = {
+		'Origin': 'http://localhost:8080',
+		'X-Upload-Content-Length': parameters['fileSize'][0]
+	}
+	# X-Upload-Content-Type. Optional. Set to the MIME type of the file data, which is transferred in subsequent requests. If the MIME type of the data is not specified in metadata or through this header, the object is served as application/octet-stream.
+	# X-Upload-Content-Length. Optional. Set to the number of bytes of file data, which will be transferred in subsequent requests.
+	# Content-Type. Required if you have metadata for the file. Set to application/json; charset=UTF-8.
+	# Content-Length. Required unless you are using chunked transfer encoding. Set to the number of bytes in the body of this initial request.
+	# Origin, if you have enabled Cross-Origin Resource Sharing. You must also use this header in subsequent upload requests.
 
-		response = authed_session.post("https://www.googleapis.com/upload/storage/v1/b/%s/o"%BUCKET, params = args, headers = headers, verify = True)
-		print(response.headers)
+	try:
+		response = session.post("https://www.googleapis.com/upload/storage/v1/b/%s/o"%BUCKET, params = args, headers = headers)
 
 		if ( response.status_code < 200 or response.status_code > 299 ):
-			raise Exception("error while getting resumable session URI", response.reason)
+			raise Exception("error while authorizing upload", response.reason)
 		if not (HEADER_UPLOAD_ID in response.headers and HEADER_UPLOAD_URI in response.headers):
-			raise Exception("error while getting resumable session URI", response.reason)
+			raise Exception("error while authorizing upload", response.reason)
 		answer = {
 			'uploadId': response.headers[HEADER_UPLOAD_ID],
 			'uploadURI': response.headers[HEADER_UPLOAD_URI],
 		}
-	except FileNotFoundError:
-		start_response('500 File not found', RESPONSE_HEADERS)
-		return [prepareMessage(None)]
-	start_response('200 OK', RESPONSE_HEADERS)
-	return [prepareMessage(answer)]
-
+		return buildResponse(answer, start_response)
+	except Exception as error:
+		return buildErrorResponse("500 request failure", start_response)
 
 def muleUploaderBackend(environ, start_response):
 	routes = {
@@ -76,10 +125,7 @@ def muleUploaderBackend(environ, start_response):
 		'/authorize/compose': composeAuthorization
 	}
 	if environ['PATH_INFO'] not in routes.keys():
-		status = '404 OK'
-		headers = [('Content-type', 'text/plain; charset=utf-8')]
-		start_response(status, headers)
-		return [b'Not found']
+		return buildErrorResponse("404 not found", start_response)
 	return routes[environ['PATH_INFO']](environ, start_response)
 
 with make_server('', 80, muleUploaderBackend) as httpd:
