@@ -1,6 +1,8 @@
 const BACKEND_SECURITY_MODE_SESSION = 'session';
 const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri';
 
+const GOOGLE_CLOUD_STORAGE_COMPOSE_MAX_OBJECTS = 32;
+
 console.debug = process.env.DEBUG && console.debug || function() {};
 
 const futch = (url, options={}) => { // fetch with progress callback
@@ -23,11 +25,15 @@ const sleep = (milliseconds) => {
 
 export class GCSUpload {
 	constructor(options) {
-		console.log(`muleUploader ${process.env.VERSION} ${process.env.DEBUG && 'DEBUG' || ''}`);
+		console.log(`muleUploader GCSUpload ${process.env.VERSION} ${process.env.DEBUG && 'DEBUG' || ''}`);
 		this.options = Object.assign({
-			backendURL: "http://localhost:8081/signature",
 			backendSecurityMode: BACKEND_SECURITY_MODE_SESSION,
+			chunkSize: 5*1024*1024,
+			parallelUploads: 1,
+			parallelMinSize: 50*1024*1024,
 		}, options);
+		if (!this.options.backendURL)
+			throw "a backend URL is required";
 	}
 	loadFile(file) {
 		if (!file.name || !file.size)
@@ -63,6 +69,8 @@ class ChunkUpload {
 			throw "chunk must have a contentType attribute";
 		if (!this.chunk.contentRange)
 			throw "chunk must have a contentType attribute";
+		if (!this.chunk.expectedReturnCode)
+			throw "chunk must have a expectedReturnCode attribute";
 		if (this.chunk.rangeStart === undefined)
 			throw "chunk must have a rangeStart attribute";
 		if (this.chunk.rangeEnd === undefined)
@@ -82,7 +90,7 @@ class ChunkUpload {
 					}
 				});
 				console.debug('got response', response);
-				if ((response.status < 200 || response.status > 299) && response.status != 308)
+				if (response.status != this.chunk.expectedReturnCode)
 					throw `error while pushing chunk: ${response.status} ${response.statusText}`;
 				return response;
 			}
@@ -111,9 +119,9 @@ class StorageObjectUpload {
 		};
 		console.debug('StorageObject chunk size is', this.options.chunkSize);
 
-		let chunkCount = Math.ceil(this.storageObject.payload.size / this.options.chunkSize);
-		this.chunks = [...Array(chunkCount).keys()];
-		this.chunksProgress = [...Array(chunkCount).values()];
+		this.chunksCount	= Math.ceil(this.storageObject.payload.size / this.options.chunkSize);
+		this.chunks			= [...Array(this.chunksCount).keys()];
+		this.chunksProgress	= [...Array(this.chunksCount).values()];
 
 	}
 	_getNextChunk() {
@@ -125,17 +133,18 @@ class StorageObjectUpload {
 		let rangeEnd		= Math.min(rangeStart + this.options.chunkSize, this.storageObject.payload.size);
 		let contentRange	= `bytes ${rangeStart}-${rangeEnd - 1}/${this.storageObject.payload.size}`;
 		return {
-			ID:				chunkID,
-			payload: 		this.storageObject.payload.slice(rangeStart, rangeEnd),
-			contentType:	'application/octet-stream',
-			contentRange:	contentRange,
-			rangeStart:		rangeStart,
-			rangeEnd:		rangeEnd
+			ID:					chunkID,
+			payload: 			this.storageObject.payload.slice(rangeStart, rangeEnd),
+			contentType:		'application/octet-stream',
+			contentRange:		contentRange,
+			rangeStart:			rangeStart,
+			rangeEnd:			rangeEnd,
+			expectedReturnCode:	chunkID + 1 == this.chunksCount && 200 || 308
 		};
 	}
-	_onChunkProgress(chunk, event) {
+	_onChunkProgress(chunkID, event) {
 		if ( event.loaded )
-			this.chunksProgress[chunk] = event.loaded;
+			this.chunksProgress[chunkID] = event.loaded;
 		this._onStorageObjectProgress();
 	}
 	_onStorageObjectProgress() {
@@ -185,36 +194,84 @@ class StorageObjectUpload {
 
 class FileUpload {
 	constructor(file, options) {
+		this.file = file;
 		this.options = Object.assign({
 			parallelUploads: 1
 		}, options);
-		this.storageObjects = [{
-			fileName: 'testObject1',
-			payload: file.slice(0, file.size)
-		}]
+		console.debug('File upload settings', options);
+
+		this.storageObjectsCount = Math.max(1, Math.min(
+			GOOGLE_CLOUD_STORAGE_COMPOSE_MAX_OBJECTS,
+			Math.floor(this.file.size / this.options.parallelMinSize)
+		));
+		let objectSize = Math.ceil(this.file.size / this.storageObjectsCount);
+		this.storageObjects = [];
+		this.storageObjectsProgress	= [...Array(this.storageObjectsCount).values()];
+		for (let i = 0; i < this.storageObjectsCount; i++) {
+			this.storageObjects.push({
+				ID: i,
+				fileName: `${this.file.name}.${i}`,
+				payload: this.file.slice(i * objectSize, Math.min(objectSize * (i + 1), this.file.size))
+			});
+		}
+		console.debug('Storage objects computation', {
+			objectsCount: this.storageObjectsCount,
+			objectSize: objectSize,
+			objects: this.storageObjects
+		});
 	}
 	_getNextStorageObject() {
 		return this.storageObjects.shift();
 	}
+	_onStorageObjectProgress(objectID, progress, size) {
+		this.storageObjectsProgress[objectID] = progress;
+		this._onFileProgress();
+	}
+	_onFileProgress() {
+		let fileProgress = 0;
+		for (let storageObjectProgress of this.storageObjectsProgress) {
+			fileProgress += storageObjectProgress || 0;
+		}
+		console.debug('_onfileProgress', fileProgress, this.file.size);
+		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size);		
+	}
 	async run() {
 		var runners = [];
-		for (let i of Array(this.options.parallelUploads).keys()) {
+		for (let i = 0; i < Math.min(this.options.parallelUploads, this.storageObjectsCount); i++) {
+			console.debug('Launching runner', i);
 			runners.push(this._runner());
 		}
 		await Promise.all(runners);
+		console.info('all running uploads successfully finished');
 		return await this._composeStorageObjects();
 	}
 	async _runner() {
-		console.debug('Launching runner');
 		let nextStorageObject;
 		while ((nextStorageObject = this._getNextStorageObject()) !== undefined) {
-			let storageObjectUpload = new StorageObjectUpload(nextStorageObject, this.options);
+			let storageObjectUpload = new StorageObjectUpload(
+				nextStorageObject,
+				Object.assign({}, this.options, {onProgressCallback: this._onStorageObjectProgress.bind(this, nextStorageObject.ID)})
+				);
 			await storageObjectUpload.run();
 		}
 		console.debug('Finishing runner');
 	}
 	async _composeStorageObjects() {
-		console.debug('_composeObjects');
+		console.debug('composing objects');
+		// let parameters = new URLSearchParams();
+		// parameters.append("fileName", this.storageObject.fileName);
+		// parameters.append("fileSize", this.storageObject.payload.size);
+
+		// let request = new Request(this.options.backendURL + '?' + parameters.toString(), {
+		// 	method: 'GET',
+		// 	cache: 'no-store'
+		// });
+
+		// let response = await fetch(request, this.fetchOptions);
+		// if (response.status < 200 || response.status > 299)
+		// 	throw `error while getting signed API call: ${response.statusText}`;
+		// return response.json();
+
 		return;
 	}
 }

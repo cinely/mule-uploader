@@ -9,7 +9,9 @@
       }
 
       var gcs = new muleUploader.GCSUpload({
-        progressCallback: onProgress
+        backendURL: "http://localhost:8081/signature",
+        onProgressCallback: onProgress,
+        parallelUploads: 4
       });
 
       var domFile = document.getElementById("file")

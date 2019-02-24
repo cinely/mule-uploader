@@ -31,7 +31,7 @@ Alternatively, you can pass an options object in order to fine tune the uploader
 	backendFetchMode: 'cors',			// cors, no-cors, same-origin, navigate
 	backendSecurityMode: 'session',			// session, signed-uri
 	parallelUploads: 1,					// how many parallel uploads
-	progressCallback: null,				// a function that will be called with progress status
+	onProgressCallback: null,				// a function that will be called with progress status
 }
 ```
 
