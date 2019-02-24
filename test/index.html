@@ -4,7 +4,7 @@
     <input id="file" type="file">
     <script src="../dist/MuleUploader.js"></script>
     <script>
-      function onProgress(uploadedSize, fullSize) {
+      function onProgress(uploadedSize, fullSize, duration, averageBitrateMbps) {
         console.log('onProgress', uploadedSize, fullSize);
       }
 

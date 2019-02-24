@@ -29,9 +29,9 @@ export class GCSUpload {
 		this.options = Object.assign({
 			authorizeSecurityMode: BACKEND_SECURITY_MODE_SESSION,
 			authorizeFetchMode: 'cors',
-			chunkSize: 5*1024*1024,
+			chunkSize: 256*1024*1024,
 			parallelUploads: 1,
-			parallelMinSize: 50*1024*1024,
+			parallelMinSize: 256*1024*1024,
 		}, options);
 		if (!this.options.uploadAuthorizationURL)
 			throw "an upload authorization URL is required";
@@ -223,6 +223,7 @@ class FileUpload {
 			objects: this.storageObjects,
 			objectsComposition: this.objectsComposition
 		});
+		this.speedMonitorStart = this.speedMonitorEnd = 0;
 	}
 	_getNextStorageObject() {
 		return this.storageObjects.shift();
@@ -232,21 +233,26 @@ class FileUpload {
 		this._onFileProgress();
 	}
 	_onFileProgress() {
+		let now = Date.now();
 		let fileProgress = 0;
 		for (let storageObjectProgress of this.storageObjectsProgress) {
 			fileProgress += storageObjectProgress || 0;
 		}
-		console.debug('_onfileProgress', fileProgress, this.file.size);
-		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size);		
+		let seconds = (now - this.speedMonitorStart) / 1000;
+		let averageBitrateMbps = (this.file.size * 8) / seconds / 1024 / 1024;
+		console.debug('_onfileProgress', fileProgress, this.file.size, seconds, averageBitrateMbps);
+		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size, seconds, averageBitrateMbps);		
 	}
 	async run() {
+		this.speedMonitorStart = Date.now();
 		var runners = [];
 		for (let i = 0; i < Math.min(this.options.parallelUploads, this.storageObjectsCount); i++) {
 			console.debug('Launching runner', i);
 			runners.push(this._runner());
 		}
 		await Promise.all(runners);
-		console.info('all running uploads successfully finished');
+		console.info("all running uploads successfully finished");
+		this._onFileProgress();
 		return await this._composeStorageObjects();
 	}
 	async _runner() {
