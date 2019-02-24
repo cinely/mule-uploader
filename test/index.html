@@ -9,7 +9,8 @@
       }
 
       var gcs = new muleUploader.GCSUpload({
-        backendURL: "http://localhost:8081/signature",
+        uploadAuthorizationURL: "http://localhost:8081/authorize/upload",
+        composeAuthorizationURL: "http://localhost:8081/authorize/compose",
         onProgressCallback: onProgress,
         parallelUploads: 4
       });

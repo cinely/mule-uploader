@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-
 import json
 import urllib
 from google.oauth2 import service_account
 from google.auth.transport.requests import AuthorizedSession
+from wsgiref.simple_server import make_server
 
 RESPONSE_HEADERS = [
 	('Content-Type','application/json'),
@@ -21,11 +20,16 @@ def prepareMessage(object):
 	serialized = json.dumps(object)
 	return serialized.encode('utf-8')
 
-def application(environ, start_response):
+def composeAuthorization(environ, start_response):
+	headers = [('Content-type', 'text/plain; charset=utf-8')]
+	start_response('500 ', headers)
+	return [b'not implemented']
+
+def uploadAuthorization(environ, start_response):
 	parameters = urllib.parse.parse_qs(environ['QUERY_STRING'])
 	if not 'fileName' in parameters or not 'fileSize' in parameters:
-		start_response('400', RESPONSE_HEADERS)
-		return [prepareMessage(None)]
+		start_response('400 missing parameters', RESPONSE_HEADERS)
+		return [prepareMessage("missing parameters")]
 	try:
 		credentials = service_account.Credentials.from_service_account_file('key.json')
 		scoped_credentials = credentials.with_scopes([GOOGLE_CLOUD_SCOPE])
@@ -60,7 +64,30 @@ def application(environ, start_response):
 			'uploadURI': response.headers[HEADER_UPLOAD_URI],
 		}
 	except FileNotFoundError:
-		start_response('500', RESPONSE_HEADERS)
+		start_response('500 File not found', RESPONSE_HEADERS)
 		return [prepareMessage(None)]
 	start_response('200 OK', RESPONSE_HEADERS)
 	return [prepareMessage(answer)]
+
+
+def muleUploaderBackend(environ, start_response):
+	routes = {
+		'/authorize/upload': uploadAuthorization,
+		'/authorize/compose': composeAuthorization
+	}
+	if environ['PATH_INFO'] not in routes.keys():
+		status = '404 OK'
+		headers = [('Content-type', 'text/plain; charset=utf-8')]
+		start_response(status, headers)
+		return [b'Not found']
+	return routes[environ['PATH_INFO']](environ, start_response)
+
+with make_server('', 80, muleUploaderBackend) as httpd:
+    print("Serving HTTP on port 80...")
+
+    # Respond to requests until process is killed
+    httpd.serve_forever()
+
+
+
+

@@ -1,4 +1,4 @@
-FROM tiangolo/uwsgi-nginx:python3.7
+FROM python:3
 
 WORKDIR /app
 
@@ -10,3 +10,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY key.json ./
 COPY main.py ./
+
+CMD [ "python", "/app/main.py" ]

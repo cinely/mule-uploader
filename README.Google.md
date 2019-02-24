@@ -6,7 +6,9 @@ This is an ES7 javascript implementation of the Google Cloud Storage API which r
 It implements multiple parallel chunk uploads in order to boost performance.
 
 # User guide
-In order to **control** which files can be uploaded by the browser to a google cloud storage bucket **without** giving a full access, the library will request a signed identifier from the **backend**.
+In order to **control** which files can be uploaded by the browser to a google cloud storage bucket **without** giving it a full access, the library will request a signed identifier from the **backend**.
+
+Bucket selection is made at the backend level.
 
 It is under the responsibility of the backend to make all needed verifications and then sign (or not) an identifier which is then provided the the library, enable subsequent uploads.
 
@@ -27,11 +29,15 @@ The library is exposed under multiple module definitions, allowing it to work wi
 Alternatively, you can pass an options object in order to fine tune the uploader :
 ```
 {
-	backendURL: "http://localhost:8081/signature",	// the backend url
-	backendFetchMode: 'cors',			// cors, no-cors, same-origin, navigate
-	backendSecurityMode: 'session',			// session, signed-uri
-	parallelUploads: 1,					// how many parallel uploads
-	onProgressCallback: null,				// a function that will be called with progress status
+	uploadAuthorizationURL: "http://localhost:8081/authorize/upload",	// the backend URL to authorize uploads
+	composeAuthorizationURL: "http://localhost:8081/authorize/compose",	// the backend URL to authorize composition
+	authorizeFetchMode: 'cors',					// cors, no-cors, same-origin, navigate
+	authorizeSecurityMode: 'session',					// session, signed-uri
+	parallelUploads: 1,							// how many parallel upload runners
+	parallelMinSize: 50*1024*1024,					// minimal object size to decide maximum number of runners
+	onProgressCallback: null,						// a function that will be called with progress status
+	onErrorRetryCount: 2						// how many retries after a fault chunk upload
+	chunkSize: 5*1024*1024						// maximum content length sent per HTTP PUT call
 }
 ```
 

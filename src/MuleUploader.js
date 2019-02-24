@@ -27,13 +27,16 @@ export class GCSUpload {
 	constructor(options) {
 		console.log(`muleUploader GCSUpload ${process.env.VERSION} ${process.env.DEBUG && 'DEBUG' || ''}`);
 		this.options = Object.assign({
-			backendSecurityMode: BACKEND_SECURITY_MODE_SESSION,
+			authorizeSecurityMode: BACKEND_SECURITY_MODE_SESSION,
+			authorizeFetchMode: 'cors',
 			chunkSize: 5*1024*1024,
 			parallelUploads: 1,
 			parallelMinSize: 50*1024*1024,
 		}, options);
-		if (!this.options.backendURL)
-			throw "a backend URL is required";
+		if (!this.options.uploadAuthorizationURL)
+			throw "an upload authorization URL is required";
+		if (!this.options.composeAuthorizationURL)
+			throw "a compose authorization URL is required";
 	}
 	loadFile(file) {
 		if (!file.name || !file.size)
@@ -46,7 +49,7 @@ export class GCSUpload {
 	async run() {
 		if (!this.file)
 			throw "file not loaded";
-		if ( this.options.backendSecurityMode != BACKEND_SECURITY_MODE_SESSION )
+		if ( this.options.authorizeSecurityMode != BACKEND_SECURITY_MODE_SESSION )
 			throw "backend security mode not implemented";
 		try {
 			let fileUpload = new FileUpload(this.file, this.options);
@@ -114,9 +117,6 @@ class StorageObjectUpload {
 			throw "storageObject must have a fileName attribute";
 		if (!this.storageObject.payload)
 			throw "storageObject must have a payload attribute";
-		this.fetchOptions = {
-			mode: this.options.backendFetchMode || 'cors'
-		};
 		console.debug('StorageObject chunk size is', this.options.chunkSize);
 
 		this.chunksCount	= Math.ceil(this.storageObject.payload.size / this.options.chunkSize);
@@ -180,14 +180,14 @@ class StorageObjectUpload {
 		parameters.append("fileName", this.storageObject.fileName);
 		parameters.append("fileSize", this.storageObject.payload.size);
 
-		let request = new Request(this.options.backendURL + '?' + parameters.toString(), {
+		let request = new Request(this.options.uploadAuthorizationURL + '?' + parameters.toString(), {
 			method: 'GET',
 			cache: 'no-store'
 		});
 
-		let response = await fetch(request, this.fetchOptions);
+		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
 		if (response.status < 200 || response.status > 299)
-			throw `error while getting signed API call: ${response.statusText}`;
+			throw `error while getting upload authorization: ${response.status} ${response.statusText}`;
 		return response.json();
 	}
 }
@@ -262,16 +262,14 @@ class FileUpload {
 		// parameters.append("fileName", this.storageObject.fileName);
 		// parameters.append("fileSize", this.storageObject.payload.size);
 
-		// let request = new Request(this.options.backendURL + '?' + parameters.toString(), {
-		// 	method: 'GET',
-		// 	cache: 'no-store'
-		// });
+		let request = new Request(this.options.composeAuthorizationURL, {
+			method: 'GET',
+			cache: 'no-store'
+		});
 
-		// let response = await fetch(request, this.fetchOptions);
-		// if (response.status < 200 || response.status > 299)
-		// 	throw `error while getting signed API call: ${response.statusText}`;
-		// return response.json();
-
-		return;
+		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
+		if (response.status < 200 || response.status > 299)
+			throw `error while getting compose authorization: ${response.status} ${response.statusText}`;
+		return response.json();
 	}
 }
