@@ -7,7 +7,7 @@ services:
     ports:
       - 8080:8080
     volumes:
-      - ./src/MuleUploader.js:/module/src/MuleUploader.js:ro
+      - ./src/:/module/src/:ro
   backend-python:
     build: backends/python/
     ports:

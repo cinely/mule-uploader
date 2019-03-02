@@ -9,4 +9,4 @@ RUN npm install
 COPY webpack.config.js ./
 
 COPY test/index.html test/
-COPY src/MuleUploader.js ./src/
+COPY src/MuleUploader.js src/SpeedMonitor.js ./src/

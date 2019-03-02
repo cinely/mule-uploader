@@ -1,3 +1,5 @@
+import SpeedMonitor from './SpeedMonitor';
+
 const BACKEND_SECURITY_MODE_SESSION = 'session';
 const BACKEND_SECURITY_MODE_SIGNED_URI = 'signed-uri';
 
@@ -126,7 +128,7 @@ class StorageObjectUpload {
 		this.chunksCount	= Math.ceil(this.storageObject.payload.size / this.options.chunkSize);
 		this.chunks			= [...Array(this.chunksCount).keys()];
 		this.chunksProgress	= [...Array(this.chunksCount).values()];
-
+		this.speedMonitor = new SpeedMonitor();
 	}
 	_getNextChunk() {
 		let chunkID = this.chunks.shift();
@@ -156,12 +158,14 @@ class StorageObjectUpload {
 		for (let chunkProgress of this.chunksProgress) {
 			storageObjectProgress += chunkProgress || 0;
 		}
+		this.speedMonitor.update(storageObjectProgress);
 		console.debug('_onStorageObjectProgress', storageObjectProgress, this.storageObject.payload.size);
 		this.options.onProgressCallback && this.options.onProgressCallback(storageObjectProgress, this.storageObject.payload.size);
 	}
 	async run() {
 		try {
 			let nextChunk;
+			this.speedMonitor.start();
 			while ((nextChunk = this._getNextChunk()) !== undefined) {
 				console.debug('nextChunk', nextChunk);
 				let chunkUpload = new ChunkUpload(nextChunk, {
@@ -214,13 +218,7 @@ class FileUpload {
 			objects: this.storageObjects,
 			objectsComposition: this.objectsComposition
 		});
-		this.speedMonitor = {
-			start: 0,
-			lastPass: 0,
-			end: 0,
-			lastSize: 0,
-			averageBitrateBps: 0
-		};
+		this.speedMonitor = new SpeedMonitor();
 	}
 	_getNextStorageObject() {
 		let storageObject = this.storageObjects.shift();
@@ -232,29 +230,17 @@ class FileUpload {
 		this._onFileProgress();
 	}
 	_onFileProgress(finished) {
-		let now = Date.now();
 		let fileProgress = 0;
 		for (let storageObjectProgress of this.storageObjectsProgress) {
 			fileProgress += storageObjectProgress || 0;
 		}
-		if (finished) {
-			var seconds = (this.speedMonitor.end - this.speedMonitor.start) / 1000;
-			this.speedMonitor.averageBitrateBps = fileProgress / seconds;
-		} else {
-			var seconds = (now - this.speedMonitor.start) / 1000;
-			let previousPass = this.speedMonitor.lastPass;
-			this.speedMonitor.lastPass = now;
-			let previousSize = this.speedMonitor.lastSize;
-			this.speedMonitor.lastSize = fileProgress;
+		this.speedMonitor.update(fileProgress);
+		
+		let averageBitrateMbps = (finished && this.speedMonitor.getAverageSpeed() || this.speedMonitor.getSmoothedSpeed())
+			* 8 / 1024 / 1024;
 
-			this.speedMonitor.averageBitrateBps =
-				this.speedMonitor.averageBitrateBps * this.options.averageBitrateSmoothingFactor
-				+ (this.speedMonitor.averageBitrateBps && 1 - this.options.averageBitrateSmoothingFactor || 1) * (this.speedMonitor.lastSize - previousSize) / (this.speedMonitor.lastPass - previousPass) * 1000;
-		}
-
-		let averageBitrateMbps = this.speedMonitor.averageBitrateBps * 8 / 1024 / 1024;
-		console.debug('_onfileProgress', fileProgress, this.file.size, seconds.toFixed(1), averageBitrateMbps.toFixed(2));
-		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size, seconds, averageBitrateMbps);		
+		console.debug('_onfileProgress', fileProgress, this.file.size, this.speedMonitor.getDuration().toFixed(1), averageBitrateMbps.toFixed(2));
+		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size, this.speedMonitor.getDuration(), averageBitrateMbps);		
 	}
 	async authorize() {
 		this.authorization = await this._getAuthorization();
@@ -266,14 +252,14 @@ class FileUpload {
 	async run() {
 		if (!this.authorization)
 			throw "authorization required, please call authorize() first";
-		this.speedMonitor.start = this.speedMonitor.lastPass = Date.now();
+		this.speedMonitor.start();
 		var runners = [];
 		for (let i = 0; i < Math.min(this.options.parallelUploads, this.storageObjectsCount); i++) {
 			console.debug('Launching runner', i);
 			runners.push(this._runner());
 		}
 		await Promise.all(runners);
-		this.speedMonitor.end = Date.now();
+		this.speedMonitor.end();
 		console.info("all running uploads successfully finished");
 		this._onFileProgress(true);
 		return await this._composeStorageObjects();
