@@ -33,11 +33,12 @@ Alternatively, you can pass an options object in order to fine tune the uploader
 	composeAuthorizationURL: "http://localhost:8081/authorize/compose",	// the backend URL to authorize composition
 	authorizeFetchMode: 'cors',					// cors, no-cors, same-origin, navigate
 	authorizeSecurityMode: 'session',					// session, signed-uri
+	chunkSize: 256*1024*1024						// maximum content length sent per HTTP PUT call, a small size will reduce content being re-uploaded when an error occurs, at a noticable transfer speed cost
 	parallelUploads: 1,							// how many parallel upload runners
-	parallelMinSize: 50*1024*1024,					// minimal object size to decide maximum number of runners
+	parallelMinSize: 256*1024*1024,					// minimal object size to decide maximum number of runners, should not be lower than chunkSize
 	onProgressCallback: null,						// a function that will be called with progress status
 	onErrorRetryCount: 2						// how many retries after a fault chunk upload
-	chunkSize: 5*1024*1024						// maximum content length sent per HTTP PUT call
+	averageBitrateSmoothingFactor: 0.8			// how stable the speed should appear (0 mean no smoothing, must be < 1)
 }
 ```
 

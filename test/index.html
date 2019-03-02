@@ -5,7 +5,9 @@
     <script src="../dist/MuleUploader.js"></script>
     <script>
       function onProgress(uploadedSize, fullSize, duration, averageBitrateMbps) {
-        console.log('onProgress', uploadedSize, fullSize);
+        var uploadedSizeMB = uploadedSize / 1024 / 1024;
+        var fullSizeMB = fullSize / 1024 / 1024;
+        console.log('onProgress', uploadedSizeMB.toFixed(1) + 'MB', fullSizeMB.toFixed(1) + 'MB', duration.toFixed(1) + 's', averageBitrateMbps.toFixed(2) + 'Mbps');
       }
 
       var gcs = new muleUploader.GCSUpload({
@@ -15,10 +17,10 @@
         parallelUploads: 4
       });
 
-      var domFile = document.getElementById("file")
+      var domFile = document.getElementById("file");
       domFile.addEventListener("change", function (event) {
-        gcs.loadFile(this.files[0])
-        //gcs.run()
+        gcs.loadFile(this.files[0]);
+        //gcs.run();
       });
   </script>
   </body>

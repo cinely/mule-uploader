@@ -28,7 +28,7 @@ def buildErrorResponse(error, start_response):
 		('Content-Type','text/plain'),
 		('Access-Control-Allow-Origin', '*')
 		]
-	start_response(bytes(error, 'utf-8'), headers)
+	start_response(error, headers)
 	return []
 
 def getAuthorizedSession():
@@ -41,7 +41,7 @@ def getAuthorizedSession():
 
 def composeAuthorization(environ, start_response):
 	parameters = urllib.parse.parse_qs(environ['QUERY_STRING'])
-	if not 'fileName' in parameters:
+	if not 'fileName' in parameters or not 'uploadBackendID' in parameters:
 		return buildErrorResponse("400 missing parameters", start_response)
 
 	try:
@@ -65,8 +65,11 @@ def composeAuthorization(environ, start_response):
 		'Content-Type': 'application/json'
 	}
 
+	uploadBackendID = parameters['uploadBackendID'][0] #not used but could be interesting to match upload request
+	uploadFileName = parameters['fileName'][0] #NOTICE: this is where you can force final file name
+
 	try:
-		response = session.post("https://www.googleapis.com/storage/v1/b/%s/o/%s/compose"%(BUCKET, parameters['fileName'][0]), data=json.dumps(body), headers=headers)
+		response = session.post("https://www.googleapis.com/storage/v1/b/%s/o/%s/compose"%(BUCKET, uploadFileName), data=json.dumps(body), headers=headers)
 		if ( response.status_code < 200 or response.status_code > 299 ):
 			raise Exception("error while authorizing compose", response.status_code, response.reason)
 		objectResource = response.json()
@@ -82,7 +85,7 @@ def composeAuthorization(environ, start_response):
 
 def uploadAuthorization(environ, start_response):
 	parameters = urllib.parse.parse_qs(environ['QUERY_STRING'])
-	if not 'fileName' in parameters or not 'fileSize' in parameters:
+	if not 'fileName' in parameters or not 'fileSize' in parameters or not 'parts' in parameters:
 		return buildErrorResponse("400 missing parameters", start_response)
 
 	try:
@@ -90,32 +93,41 @@ def uploadAuthorization(environ, start_response):
 	except Exception:
 		return buildErrorResponse("500 authentication failure", start_response)
 
-	args = {
-		'uploadType': 'resumable',
-		'name': parameters['fileName'][0],
-		}
-	headers = {
-		'Origin': 'http://localhost:8080',
-		'X-Upload-Content-Length': parameters['fileSize'][0]
-	}
-	# X-Upload-Content-Type. Optional. Set to the MIME type of the file data, which is transferred in subsequent requests. If the MIME type of the data is not specified in metadata or through this header, the object is served as application/octet-stream.
-	# X-Upload-Content-Length. Optional. Set to the number of bytes of file data, which will be transferred in subsequent requests.
-	# Content-Type. Required if you have metadata for the file. Set to application/json; charset=UTF-8.
-	# Content-Length. Required unless you are using chunked transfer encoding. Set to the number of bytes in the body of this initial request.
-	# Origin, if you have enabled Cross-Origin Resource Sharing. You must also use this header in subsequent upload requests.
+	uploadPartsFilenamePrefix	= parameters['fileName'][0] #NOTICE: this where you can force parts filenames
+	uploadBackendID				= "DUMMY"
 
 	try:
-		response = session.post("https://www.googleapis.com/upload/storage/v1/b/%s/o"%BUCKET, params = args, headers = headers)
+		uploadParts = []
+		for objectID in range(0, int(parameters['parts'][0])):
+			args = {
+				'uploadType': 'resumable',
+				'name': "%s.%d"%(uploadPartsFilenamePrefix, objectID),
+				}
+			headers = {
+				'Origin': 'http://localhost:8080',
+				# 'X-Upload-Content-Length': parameters['fileSize'][0]
+			}
+			# X-Upload-Content-Type. Optional. Set to the MIME type of the file data, which is transferred in subsequent requests. If the MIME type of the data is not specified in metadata or through this header, the object is served as application/octet-stream.
+			# X-Upload-Content-Length. Optional. Set to the number of bytes of file data, which will be transferred in subsequent requests.
+			# Content-Type. Required if you have metadata for the file. Set to application/json; charset=UTF-8.
+			# Content-Length. Required unless you are using chunked transfer encoding. Set to the number of bytes in the body of this initial request.
+			# Origin, if you have enabled Cross-Origin Resource Sharing. You must also use this header in subsequent upload requests.
 
-		if ( response.status_code < 200 or response.status_code > 299 ):
-			raise Exception("error while authorizing upload", response.reason)
-		if not (HEADER_UPLOAD_ID in response.headers and HEADER_UPLOAD_URI in response.headers):
-			raise Exception("error while authorizing upload", response.reason)
-		answer = {
-			'uploadId': response.headers[HEADER_UPLOAD_ID],
-			'uploadURI': response.headers[HEADER_UPLOAD_URI],
-		}
-		return buildResponse(answer, start_response)
+			response = session.post("https://www.googleapis.com/upload/storage/v1/b/%s/o"%BUCKET, params = args, headers = headers)
+
+			if ( response.status_code < 200 or response.status_code > 299 ):
+				raise Exception("error while authorizing upload", response.reason)
+			if not (HEADER_UPLOAD_ID in response.headers and HEADER_UPLOAD_URI in response.headers):
+				raise Exception("error while authorizing upload", response.reason)
+			uploadParts.append({
+				'uploadId': response.headers[HEADER_UPLOAD_ID],
+				'uploadURI': response.headers[HEADER_UPLOAD_URI],
+			})
+		return buildResponse({
+			'uploadBackendID': uploadBackendID,
+			'uploadPartsFilenamePrefix': uploadPartsFilenamePrefix,
+			'uploadParts': uploadParts
+			}, start_response)
 	except Exception as error:
 		return buildErrorResponse("500 request failure", start_response)
 

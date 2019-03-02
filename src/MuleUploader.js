@@ -32,6 +32,7 @@ export class GCSUpload {
 			chunkSize: 256*1024*1024,
 			parallelUploads: 1,
 			parallelMinSize: 256*1024*1024,
+			averageBitrateSmoothingFactor: 0.8
 		}, options);
 		if (!this.options.uploadAuthorizationURL)
 			throw "an upload authorization URL is required";
@@ -53,6 +54,7 @@ export class GCSUpload {
 			throw "backend security mode not implemented";
 		try {
 			let fileUpload = new FileUpload(this.file, this.options);
+			await fileUpload.authorize();
 			await fileUpload.run();
 		} catch(error) {
 			throw `not able to upload, ${error}`;
@@ -117,6 +119,8 @@ class StorageObjectUpload {
 			throw "storageObject must have a fileName attribute";
 		if (!this.storageObject.payload)
 			throw "storageObject must have a payload attribute";
+		if (!this.storageObject.uploadURI)
+			throw "storageObject must have an uploadURI attribute";
 		console.debug('StorageObject chunk size is', this.options.chunkSize);
 
 		this.chunksCount	= Math.ceil(this.storageObject.payload.size / this.options.chunkSize);
@@ -156,15 +160,12 @@ class StorageObjectUpload {
 		this.options.onProgressCallback && this.options.onProgressCallback(storageObjectProgress, this.storageObject.payload.size);
 	}
 	async run() {
-		this.session = await this._getAuthorization();
-		console.debug('StorageObject session received', this.session);
-
 		try {
 			let nextChunk;
 			while ((nextChunk = this._getNextChunk()) !== undefined) {
 				console.debug('nextChunk', nextChunk);
 				let chunkUpload = new ChunkUpload(nextChunk, {
-					uploadURI: this.session.uploadURI,
+					uploadURI: this.storageObject.uploadURI,
 					onErrorRetryCount: 2,
 					onProgressCallback: this._onChunkProgress.bind(this, nextChunk.ID)
 				});
@@ -173,22 +174,6 @@ class StorageObjectUpload {
 		} catch(error) {
 			throw `not able to upload chunk, ${error}`;
 		}
-	}
-	async _getAuthorization() {
-		console.debug('getting authorization for', this.storageObject);
-		let parameters = new URLSearchParams();
-		parameters.append("fileName", this.storageObject.fileName);
-		parameters.append("fileSize", this.storageObject.payload.size);
-
-		let request = new Request(this.options.uploadAuthorizationURL + '?' + parameters.toString(), {
-			method: 'GET',
-			cache: 'no-store'
-		});
-
-		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
-		if (response.status < 200 || response.status > 299)
-			throw `error while getting upload authorization: ${response.status} ${response.statusText}`;
-		return response.json();
 	}
 }
 
@@ -204,6 +189,12 @@ class FileUpload {
 			GOOGLE_CLOUD_STORAGE_COMPOSE_MAX_OBJECTS,
 			Math.floor(this.file.size / this.options.parallelMinSize)
 		));
+		if (this.options.parallelUploads > this.storageObjectsCount)
+			console.warn(
+				"not able to reach full acceleration potential,",
+				"this may occur because your file is too small,",
+				"please consider adjusting parallelMinSize."
+				);
 		let objectSize = Math.ceil(this.file.size / this.storageObjectsCount);
 		this.storageObjects = [];
 		this.storageObjectsProgress	= [...Array(this.storageObjectsCount).values()];
@@ -223,36 +214,68 @@ class FileUpload {
 			objects: this.storageObjects,
 			objectsComposition: this.objectsComposition
 		});
-		this.speedMonitorStart = this.speedMonitorEnd = 0;
+		this.speedMonitor = {
+			start: 0,
+			lastPass: 0,
+			end: 0,
+			lastSize: 0,
+			averageBitrateBps: 0
+		};
 	}
 	_getNextStorageObject() {
-		return this.storageObjects.shift();
+		let storageObject = this.storageObjects.shift();
+		console.debug("next storageObject", storageObject);
+		return storageObject;
 	}
 	_onStorageObjectProgress(objectID, progress, size) {
 		this.storageObjectsProgress[objectID] = progress;
 		this._onFileProgress();
 	}
-	_onFileProgress() {
+	_onFileProgress(finished) {
 		let now = Date.now();
 		let fileProgress = 0;
 		for (let storageObjectProgress of this.storageObjectsProgress) {
 			fileProgress += storageObjectProgress || 0;
 		}
-		let seconds = (now - this.speedMonitorStart) / 1000;
-		let averageBitrateMbps = (this.file.size * 8) / seconds / 1024 / 1024;
-		console.debug('_onfileProgress', fileProgress, this.file.size, seconds, averageBitrateMbps);
+		if (finished) {
+			var seconds = (this.speedMonitor.end - this.speedMonitor.start) / 1000;
+			this.speedMonitor.averageBitrateBps = fileProgress / seconds;
+		} else {
+			var seconds = (now - this.speedMonitor.start) / 1000;
+			let previousPass = this.speedMonitor.lastPass;
+			this.speedMonitor.lastPass = now;
+			let previousSize = this.speedMonitor.lastSize;
+			this.speedMonitor.lastSize = fileProgress;
+
+			this.speedMonitor.averageBitrateBps =
+				this.speedMonitor.averageBitrateBps * this.options.averageBitrateSmoothingFactor
+				+ (this.speedMonitor.averageBitrateBps && 1 - this.options.averageBitrateSmoothingFactor || 1) * (this.speedMonitor.lastSize - previousSize) / (this.speedMonitor.lastPass - previousPass) * 1000;
+		}
+
+		let averageBitrateMbps = this.speedMonitor.averageBitrateBps * 8 / 1024 / 1024;
+		console.debug('_onfileProgress', fileProgress, this.file.size, seconds.toFixed(1), averageBitrateMbps.toFixed(2));
 		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size, seconds, averageBitrateMbps);		
 	}
+	async authorize() {
+		this.authorization = await this._getAuthorization();
+		for (let i = 0; i < this.authorization.uploadParts.length && i < this.storageObjects.length; i++) {
+			this.storageObjects[i].uploadURI = this.authorization.uploadParts[i].uploadURI;
+		}
+		console.log("got authorization", this.authorization);
+	}
 	async run() {
-		this.speedMonitorStart = Date.now();
+		if (!this.authorization)
+			throw "authorization required, please call authorize() first";
+		this.speedMonitor.start = this.speedMonitor.lastPass = Date.now();
 		var runners = [];
 		for (let i = 0; i < Math.min(this.options.parallelUploads, this.storageObjectsCount); i++) {
 			console.debug('Launching runner', i);
 			runners.push(this._runner());
 		}
 		await Promise.all(runners);
+		this.speedMonitor.end = Date.now();
 		console.info("all running uploads successfully finished");
-		this._onFileProgress();
+		this._onFileProgress(true);
 		return await this._composeStorageObjects();
 	}
 	async _runner() {
@@ -267,9 +290,10 @@ class FileUpload {
 		console.debug('Finishing runner');
 	}
 	async _composeStorageObjects() {
-		console.debug('composing objects');
+		console.info('Composing final file, and purging upload parts, this may take a few seconds');
 		let parameters = new URLSearchParams();
 		parameters.append("fileName", this.file.name);
+		parameters.append("uploadBackendID", this.authorization.uploadBackendID);
 
 		let request = new Request(this.options.composeAuthorizationURL + '?' + parameters.toString(), {
 			method: 'POST',
@@ -280,6 +304,23 @@ class FileUpload {
 		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
 		if (response.status < 200 || response.status > 299)
 			throw `error while getting compose authorization: ${response.status} ${response.statusText}`;
+		return response.json();
+	}
+	async _getAuthorization() {
+		console.log("getting file upload authorization, this can take a couple of seconds");
+		let parameters = new URLSearchParams();
+		parameters.append("fileName", this.file.name);
+		parameters.append("fileSize", this.file.size);
+		parameters.append("parts", this.storageObjectsCount);
+
+		let request = new Request(this.options.uploadAuthorizationURL + '?' + parameters.toString(), {
+			method: 'GET',
+			cache: 'no-store'
+		});
+
+		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
+		if (response.status < 200 || response.status > 299)
+			throw `error while getting upload authorization: ${response.status} ${response.statusText}`;
 		return response.json();
 	}
 }
