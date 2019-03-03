@@ -33,6 +33,7 @@ export default class {
 				payload: this.file.slice(i * objectSize, Math.min(objectSize * (i + 1), this.file.size))
 			});
 		}
+		this.runnersTrackers = [];
 		this.objectsComposition = this.storageObjects.reduce((accumulator, value) => {
 			accumulator.push({'name': value.fileName}); return accumulator},
 			[])
@@ -49,8 +50,20 @@ export default class {
 		console.debug("next storageObject", storageObject);
 		return storageObject;
 	}
-	_onStorageObjectProgress(objectID, progress, size) {
+	_onStorageObjectProgress(objectID, runnerTracker, progress, size) {
 		this.storageObjectsProgress[objectID] = progress;
+		runnerTracker.objectsProgress[objectID] = progress;
+
+		let runnerProgress = 0;
+		for (let storageObjectProgress of runnerTracker.objectsProgress) {
+			runnerProgress += storageObjectProgress || 0;
+		}
+
+		runnerTracker.speedMonitor.update(runnerProgress);
+		console.debug("runner speed report",
+			runnerTracker.ID,
+			runnerTracker.speedMonitor.getCurrentSpeed().toFixed(2),
+			runnerTracker.speedMonitor.getSmoothedSpeed().toFixed(2));
 		this._onFileProgress();
 	}
 	_onFileProgress(finished) {
@@ -60,8 +73,15 @@ export default class {
 		}
 		this.speedMonitor.update(fileProgress);
 		
-		let averageBitrateMbps = (finished && this.speedMonitor.getAverageSpeed() || this.speedMonitor.getSmoothedSpeed())
-			* 8 / 1024 / 1024;
+		if (finished)
+			var averageBitrateMbps = this.speedMonitor.getAverageSpeed() * 8 / 1024 / 1024;
+		else {
+			let smoothedSpeed = 0;
+			for (let runnerTracker of this.runnersTrackers) {
+				smoothedSpeed += runnerTracker.speedMonitor.getSmoothedSpeed();
+			}
+			var averageBitrateMbps = smoothedSpeed * 8 / 1024 / 1024;
+		}
 
 		console.debug('_onfileProgress', fileProgress, this.file.size, this.speedMonitor.getDuration().toFixed(1), averageBitrateMbps.toFixed(2));
 		this.options.onProgressCallback && this.options.onProgressCallback(fileProgress, this.file.size, this.speedMonitor.getDuration(), averageBitrateMbps);		
@@ -80,7 +100,13 @@ export default class {
 		var runners = [];
 		for (let i = 0; i < Math.min(this.options.parallelUploads, this.storageObjectsCount); i++) {
 			console.debug('Launching runner', i);
-			runners.push(this._runner());
+			let runnerTracker = {
+				ID: i,
+				objectsProgress: [],
+				speedMonitor: new SpeedMonitor()
+			};
+			this.runnersTrackers.push(runnerTracker);
+			runners.push(this._runner(runnerTracker));
 		}
 		await Promise.all(runners);
 		this.speedMonitor.end();
@@ -88,15 +114,17 @@ export default class {
 		this._onFileProgress(true);
 		return await this._composeStorageObjects();
 	}
-	async _runner() {
+	async _runner(tracker) {
+		tracker.speedMonitor.start();
 		let nextStorageObject;
 		while ((nextStorageObject = this._getNextStorageObject()) !== undefined) {
 			let storageObjectUpload = new StorageObjectUpload(
 				nextStorageObject,
-				Object.assign({}, this.options, {onProgressCallback: this._onStorageObjectProgress.bind(this, nextStorageObject.ID)})
+				Object.assign({}, this.options, {onProgressCallback: this._onStorageObjectProgress.bind(this, nextStorageObject.ID, tracker)})
 				);
 			await storageObjectUpload.run();
 		}
+		tracker.speedMonitor.end();
 		console.debug('Finishing runner');
 	}
 	async _composeStorageObjects() {

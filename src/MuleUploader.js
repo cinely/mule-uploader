@@ -39,6 +39,7 @@ export class GCSUpload {
 			let fileUpload = new FileUpload(this.file, this.options);
 			await fileUpload.authorize();
 			await fileUpload.run();
+			console.info("upload complete");
 		} catch(error) {
 			throw `not able to upload, ${error}`;
 		}

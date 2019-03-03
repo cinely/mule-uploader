@@ -12,6 +12,7 @@ export default class {
 		this.startDate = this.endDate = this.lastUpdateDate = 0;
 		this.progress = 0;	
 		this.currentSpeed = this.averageSpeed = this.smoothedSpeed = 0;
+		this.ended = false;
 	}
 	start() {
 		var now = Date.now();
@@ -19,9 +20,13 @@ export default class {
 	}
 	end() {
 		this.endDate = Date.now();
+		this.currentSpeed = this.smoothedSpeed = 0;
+		this.ended = true;
 	}
 	update(progress) {
 		var now = Date.now();
+		if (this.ended)
+			return;
 		if (now - this.lastUpdateDate < this.minLapseMs) {
 			console.debug("too fast speed updates");
 			return;
