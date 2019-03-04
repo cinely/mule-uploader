@@ -48,6 +48,11 @@ export class GCSUpload {
 			throw `not able to upload, ${error}`;
 		}
 	}
+	async abort() {
+		if (!this.fileUpload)
+			throw "nothing to abort";
+		return await this.fileUpload.abort();
+	}
 };
 
 

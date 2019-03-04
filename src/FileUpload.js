@@ -170,4 +170,7 @@ export default class {
 			throw "authorization lacks uploadParts";
 		return authorization;
 	}
+	async abort() {
+		throw "not implemented yet";
+	}
 }
