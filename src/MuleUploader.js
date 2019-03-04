@@ -36,10 +36,14 @@ export class GCSUpload {
 		if ( this.options.authorizeSecurityMode != BACKEND_SECURITY_MODE_SESSION )
 			throw "backend security mode not implemented";
 		try {
-			let fileUpload = new FileUpload(this.file, this.options);
-			await fileUpload.authorize();
-			await fileUpload.run();
+			this.fileUpload = new FileUpload(this.file, this.options);
+			let authorization = await this.fileUpload.authorize();
+			let composedObject = await this.fileUpload.run();
 			console.info("upload complete");
+			return {
+				authorization: authorization,
+				composedObject: composedObject
+			};
 		} catch(error) {
 			throw `not able to upload, ${error}`;
 		}

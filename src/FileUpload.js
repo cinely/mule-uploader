@@ -23,26 +23,9 @@ export default class {
 				"this may occur because your file is too small,",
 				"please consider adjusting parallelMinSize."
 				);
-		let objectSize = Math.ceil(this.file.size / this.storageObjectsCount);
 		this.storageObjects = [];
 		this.storageObjectsProgress	= [...Array(this.storageObjectsCount).values()];
-		for (let i = 0; i < this.storageObjectsCount; i++) {
-			this.storageObjects.push({
-				ID: i,
-				fileName: `${this.file.name}.${i}`,
-				payload: this.file.slice(i * objectSize, Math.min(objectSize * (i + 1), this.file.size))
-			});
-		}
 		this.runnersTrackers = [];
-		this.objectsComposition = this.storageObjects.reduce((accumulator, value) => {
-			accumulator.push({'name': value.fileName}); return accumulator},
-			[])
-		console.debug('Storage objects computation', {
-			objectsCount: this.storageObjectsCount,
-			objectSize: objectSize,
-			objects: this.storageObjects,
-			objectsComposition: this.objectsComposition
-		});
 		this.speedMonitor = new SpeedMonitor();
 	}
 	_getNextStorageObject() {
@@ -88,10 +71,28 @@ export default class {
 	}
 	async authorize() {
 		this.authorization = await this._getAuthorization();
-		for (let i = 0; i < this.authorization.uploadParts.length && i < this.storageObjects.length; i++) {
-			this.storageObjects[i].uploadURI = this.authorization.uploadParts[i].uploadURI;
+		if (this.authorization.uploadParts.length != this.storageObjectsCount)
+			throw "incorrect parts count within authorization";
+
+		let objectSize = Math.ceil(this.file.size / this.storageObjectsCount);
+		for (let i = 0; i < this.storageObjectsCount; i++) {
+			this.storageObjects.push({
+				ID: i,
+				fileName: `${this.authorization.uploadPartsFilenamePrefix}.${i}`,
+				payload: this.file.slice(i * objectSize, Math.min(objectSize * (i + 1), this.file.size)),
+				uploadURI: this.authorization.uploadParts[i].uploadURI
+			});
 		}
-		console.log("got authorization", this.authorization);
+		this.objectsComposition = this.storageObjects.reduce((accumulator, value) => {
+			accumulator.push({'name': value.fileName}); return accumulator},
+			[])
+		console.debug('Storage objects computation', {
+			objectsCount: this.storageObjectsCount,
+			objectSize: objectSize,
+			objects: this.storageObjects,
+			objectsComposition: this.objectsComposition
+		});
+		return this.authorization;
 	}
 	async run() {
 		if (!this.authorization)
@@ -142,7 +143,7 @@ export default class {
 		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
 		if (response.status < 200 || response.status > 299)
 			throw `error while getting compose authorization: ${response.status} ${response.statusText}`;
-		return response.json();
+		return await response.json();
 	}
 	async _getAuthorization() {
 		console.log("getting file upload authorization, this can take a couple of seconds");
@@ -159,6 +160,14 @@ export default class {
 		let response = await fetch(request, {mode: this.options.authorizeFetchMode});
 		if (response.status < 200 || response.status > 299)
 			throw `error while getting upload authorization: ${response.status} ${response.statusText}`;
-		return response.json();
+		let authorization = await response.json();
+		console.debug("authorization", authorization);
+		if (!authorization.uploadBackendID)
+			throw "authorization lacks uploadBackendID";
+		if (!authorization.uploadPartsFilenamePrefix)
+			throw "authorization lacks uploadPartsFilenamePrefix";
+		if (!authorization.uploadParts)
+			throw "authorization lacks uploadParts";
+		return authorization;
 	}
 }
