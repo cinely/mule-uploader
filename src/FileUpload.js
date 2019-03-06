@@ -5,6 +5,54 @@ console.debug = process.env.DEBUG && console.debug || function() {};
 
 const GOOGLE_CLOUD_STORAGE_COMPOSE_MAX_OBJECTS = 32;
 
+class FileUploadRunner {
+	constructor(fileStorageObjectsProgress, getNextStorageObject, onProgressCallback) {
+		this.fileStorageObjectsProgress = fileStorageObjectsProgress;
+		this.storageObjectsProgress = [...Array(this.fileStorageObjectsProgress.length).values()];
+
+		this.getNextStorageObject = getNextStorageObject;
+		this.onProgressCallback = onProgressCallback;
+
+		this.speedMonitor = new SpeedMonitor();
+		this.aborted = false;
+		this.storageObjectUpload = null;
+	}
+	async run() {
+		this.speedMonitor.start();
+		let nextStorageObject;
+		while ((nextStorageObject = this.getNextStorageObject()) !== undefined) {
+			this.storageObjectUpload = new StorageObjectUpload(
+				nextStorageObject,
+				Object.assign({}, this.options, {onProgressCallback: this._onStorageObjectProgress.bind(this, nextStorageObject.ID)})
+				);
+			await this.storageObjectUpload.run();
+		}
+		this.speedMonitor.end();
+		console.debug('Finishing runner');
+	}
+	_onStorageObjectProgress(objectID, progress, size) {
+		this.fileStorageObjectsProgress[objectID] = progress;
+		this.storageObjectsProgress[objectID] = progress;
+
+		let runnerProgress = 0;
+		for (let storageObjectProgress of this.storageObjectsProgress) {
+			runnerProgress += storageObjectProgress || 0;
+		}
+
+		this.speedMonitor.update(runnerProgress);
+		this.onProgressCallback();
+	}
+	abort() {
+		console.debug("aborting fileUploadRunner");
+		this.aborted = true;
+		if (this.storageObjectUpload && this.storageObjectUpload.abort)
+			this.storageObjectUpload.abort();
+	}
+	getSpeedMonitor() {
+		return this.speedMonitor;
+	}
+}
+
 export default class {
 	constructor(file, options) {
 		this.file = file;
@@ -25,29 +73,13 @@ export default class {
 				);
 		this.storageObjects = [];
 		this.storageObjectsProgress	= [...Array(this.storageObjectsCount).values()];
-		this.runnersTrackers = [];
+		this.runners = [];
 		this.speedMonitor = new SpeedMonitor();
 	}
 	_getNextStorageObject() {
 		let storageObject = this.storageObjects.shift();
 		console.debug("next storageObject", storageObject);
 		return storageObject;
-	}
-	_onStorageObjectProgress(objectID, runnerTracker, progress, size) {
-		this.storageObjectsProgress[objectID] = progress;
-		runnerTracker.objectsProgress[objectID] = progress;
-
-		let runnerProgress = 0;
-		for (let storageObjectProgress of runnerTracker.objectsProgress) {
-			runnerProgress += storageObjectProgress || 0;
-		}
-
-		runnerTracker.speedMonitor.update(runnerProgress);
-		console.debug("runner speed report",
-			runnerTracker.ID,
-			runnerTracker.speedMonitor.getCurrentSpeed().toFixed(2),
-			runnerTracker.speedMonitor.getSmoothedSpeed().toFixed(2));
-		this._onFileProgress();
 	}
 	_onFileProgress(finished) {
 		let fileProgress = 0;
@@ -60,8 +92,8 @@ export default class {
 			var averageBitrateMbps = this.speedMonitor.getAverageSpeed() * 8 / 1024 / 1024;
 		else {
 			let smoothedSpeed = 0;
-			for (let runnerTracker of this.runnersTrackers) {
-				smoothedSpeed += runnerTracker.speedMonitor.getSmoothedSpeed();
+			for (let runner of this.runners) {
+				smoothedSpeed += runner.getSpeedMonitor().getSmoothedSpeed();
 			}
 			var averageBitrateMbps = smoothedSpeed * 8 / 1024 / 1024;
 		}
@@ -98,36 +130,20 @@ export default class {
 		if (!this.authorization)
 			throw "authorization required, please call authorize() first";
 		this.speedMonitor.start();
-		var runners = [];
+		var runnersPromise = [];
 		for (let i = 0; i < Math.min(this.options.parallelUploads, this.storageObjectsCount); i++) {
+			let runner = new FileUploadRunner(this.storageObjectsProgress, this._getNextStorageObject.bind(this), this._onFileProgress.bind(this));
+			this.runners.push(runner);
 			console.debug('Launching runner', i);
-			let runnerTracker = {
-				ID: i,
-				objectsProgress: [],
-				speedMonitor: new SpeedMonitor()
-			};
-			this.runnersTrackers.push(runnerTracker);
-			runners.push(this._runner(runnerTracker));
+			runnersPromise.push(runner.run());
 		}
-		await Promise.all(runners);
+		await Promise.all(runnersPromise);
 		this.speedMonitor.end();
 		console.info("all running uploads successfully finished");
 		this._onFileProgress(true);
 		return await this._composeStorageObjects();
 	}
-	async _runner(tracker) {
-		tracker.speedMonitor.start();
-		let nextStorageObject;
-		while ((nextStorageObject = this._getNextStorageObject()) !== undefined) {
-			let storageObjectUpload = new StorageObjectUpload(
-				nextStorageObject,
-				Object.assign({}, this.options, {onProgressCallback: this._onStorageObjectProgress.bind(this, nextStorageObject.ID, tracker)})
-				);
-			await storageObjectUpload.run();
-		}
-		tracker.speedMonitor.end();
-		console.debug('Finishing runner');
-	}
+
 	async _composeStorageObjects() {
 		console.info('composing final file and purging upload parts, this may take a few seconds');
 		let parameters = new URLSearchParams();
@@ -170,7 +186,9 @@ export default class {
 			throw "authorization lacks uploadParts";
 		return authorization;
 	}
-	async abort() {
-		throw "not implemented yet";
+	abort() {
+		console.debug("aborting fileUpload");
+		for (let runner of this.runners)
+			runner.abort();
 	}
 }

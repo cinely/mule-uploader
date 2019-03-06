@@ -1,19 +1,5 @@
 console.debug = process.env.DEBUG && console.debug || function() {};
 
-const futch = (url, options={}) => { // fetch with progress callback
-	return new Promise( (resolve, reject)=>{
-		let xhr = new XMLHttpRequest();
-		xhr.open(options.method || 'get', url);
-		for (let k in options.headers||{})
-			xhr.setRequestHeader(k, options.headers[k]);
-		xhr.onload = e => resolve(e.target);
-		xhr.onerror = reject;
-		if (xhr.upload && options.onProgressCallback)
-			xhr.upload.onprogress = options.onProgressCallback; // event.loaded / event.total * 100 ; //event.lengthComputable
-		xhr.send(options.body);
-	});
-}
-
 const sleep = (milliseconds) => {
   return new Promise(resolve => setTimeout(resolve, milliseconds))
 }
@@ -36,12 +22,14 @@ export default class {
 			throw "chunk must have a rangeStart attribute";
 		if (this.chunk.rangeEnd === undefined)
 			throw "chunk must have a rangeEnd attribute";
+		this.xhr = null;
+		this.aborted = false;
 	}
 	async run() {
 		let errors = [];
-		for (let i = 0; i <= this.options.onErrorRetryCount; i++) {
+		for (let i = 0; !this.aborted && i <= this.options.onErrorRetryCount; i++) {
 			try {
-				let response = await futch(this.options.uploadURI, {
+				let response = await this._futch(this.options.uploadURI, {
 					method: 'PUT',
 					body: this.chunk.payload,
 					onProgressCallback: this.options.onProgressCallback,
@@ -62,5 +50,24 @@ export default class {
 			await sleep(Math.pow(2, i) * 1000 + Math.random() * 1000);
 		}
 		throw errors;
+	}
+	_futch(url, options={}) { // fetch with progress callback
+		return new Promise( (resolve, reject) => {
+			this.xhr = new XMLHttpRequest();
+			this.xhr.open(options.method || 'get', url);
+			for (let k in options.headers||{})
+				this.xhr.setRequestHeader(k, options.headers[k]);
+			this.xhr.onload = e => resolve(e.target);
+			this.xhr.onerror = reject;
+			if (this.xhr.upload && options.onProgressCallback)
+				this.xhr.upload.onprogress = options.onProgressCallback; // event.loaded / event.total * 100 ; //event.lengthComputable
+			this.xhr.send(options.body);
+		});
+	}
+	abort() {
+		console.debug("aborting chunkUpload");
+		this.aborted = true;
+		if (this.xhr && this.xhr.abort)
+			this.xhr.abort();
 	}
 }

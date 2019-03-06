@@ -51,7 +51,8 @@ export class GCSUpload {
 	async abort() {
 		if (!this.fileUpload)
 			throw "nothing to abort";
-		return await this.fileUpload.abort();
+		this.fileUpload.abort();
+		console.info("file upload aborted");
 	}
 };
 

@@ -21,6 +21,8 @@ export default class {
 		this.chunks			= [...Array(this.chunksCount).keys()];
 		this.chunksProgress	= [...Array(this.chunksCount).values()];
 		this.speedMonitor = new SpeedMonitor();
+		this.chunkUpload = null;
+		this.aborted = false;
 	}
 	_getNextChunk() {
 		let chunkID = this.chunks.shift();
@@ -58,17 +60,23 @@ export default class {
 		try {
 			let nextChunk;
 			this.speedMonitor.start();
-			while ((nextChunk = this._getNextChunk()) !== undefined) {
+			while (!this.aborted && (nextChunk = this._getNextChunk()) !== undefined) {
 				console.debug('nextChunk', nextChunk);
-				let chunkUpload = new ChunkUpload(nextChunk, {
+				this.chunkUpload = new ChunkUpload(nextChunk, {
 					uploadURI: this.storageObject.uploadURI,
 					onErrorRetryCount: 2,
 					onProgressCallback: this._onChunkProgress.bind(this, nextChunk.ID)
 				});
-				await chunkUpload.run();
+				await this.chunkUpload.run();
 			}
 		} catch(error) {
 			throw `not able to upload chunk, ${error}`;
 		}
+	}
+	abort() {
+		console.debug("aborting storageObjectUpload");
+		this.aborted = true;
+		if (this.chunkUpload && this.chunkUpload.abort)
+			this.chunkUpload.abort();
 	}
 }

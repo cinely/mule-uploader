@@ -64,4 +64,7 @@ export default class {
 	getDuration() {
 		return this.duration / 1000;
 	}
+	getProgress() {
+		return this.progress;
+	}
 }
